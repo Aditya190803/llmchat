@@ -29,7 +29,8 @@ const stripThinkTags = (value: string) => value.replace(cloneRegex(THINK_TAG_REG
 
 const extractAnswerAndThinking = (
     rawAnswer?: string,
-    explicitThinking?: string
+    explicitThinking?: string,
+    fallbackAnswer?: string
 ): { answer: string; thinking: string } => {
     const thinkingParts = new Set<string>();
 
@@ -69,6 +70,13 @@ const extractAnswerAndThinking = (
 
     sanitizedAnswer = stripThinkTags(sanitizedAnswer).trim();
 
+    if (!sanitizedAnswer && fallbackAnswer) {
+        const cleanedFallback = stripThinkTags(fallbackAnswer).trim();
+        if (cleanedFallback) {
+            sanitizedAnswer = cleanedFallback;
+        }
+    }
+
     const thinking = Array.from(thinkingParts)
         .map(part => part.trim())
         .filter(Boolean)
@@ -101,8 +109,13 @@ export const ThreadItem = memo(
         }, [threadItem.answer?.text, threadItem.answer?.finalText]);
 
         const { answer: answerText, thinking: derivedThinkingProcess } = useMemo(
-            () => extractAnswerAndThinking(rawAnswerText, threadItem.thinkingProcess),
-            [rawAnswerText, threadItem.thinkingProcess]
+            () =>
+                extractAnswerAndThinking(
+                    rawAnswerText,
+                    threadItem.thinkingProcess,
+                    threadItem.answer?.finalText
+                ),
+            [rawAnswerText, threadItem.thinkingProcess, threadItem.answer?.finalText]
         );
 
         const { isAnimationComplete, text: animatedText } = useAnimatedText(
