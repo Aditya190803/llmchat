@@ -38,6 +38,7 @@ ctx.addEventListener('message', async (event: MessageEvent) => {
                 config,
                 apiKeys: newApiKeys,
                 mcpConfig,
+                userId,
             } = payload;
 
             // Set API keys if provided
@@ -65,6 +66,7 @@ ctx.addEventListener('message', async (event: MessageEvent) => {
                 config,
                 mcpConfig,
                 onFinish: (data: any) => {},
+                userId,
             });
 
             // Forward workflow events to the main thread

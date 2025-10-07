@@ -1,7 +1,5 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from '@ai-sdk/openai';
-import { LanguageModelV1 } from '@ai-sdk/provider';
-import { LanguageModelV1Middleware, wrapLanguageModel } from 'ai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { ModelEnum, models } from './models';
 
 export const Providers = {
@@ -117,49 +115,45 @@ const getOpenRouterHeaders = () => {
 
 export const getProviderInstance = (provider: ProviderEnumType) => {
   switch (provider) {
-    case 'google':
-      {
-  const apiKey = getProviderApiKey(Providers.GOOGLE);
-        if (!apiKey) {
-          throw new MissingProviderKeyError(Providers.GOOGLE);
-        }
+    case Providers.GOOGLE: {
+      const apiKey = getProviderApiKey(Providers.GOOGLE);
+      if (!apiKey) {
+        throw new MissingProviderKeyError(Providers.GOOGLE);
+      }
       return createGoogleGenerativeAI({
         apiKey,
       });
+    }
+    case Providers.OPENROUTER: {
+      const apiKey = getProviderApiKey(Providers.OPENROUTER);
+      if (!apiKey) {
+        throw new MissingProviderKeyError(Providers.OPENROUTER);
       }
-    case Providers.OPENROUTER:
-      {
-  const apiKey = getProviderApiKey(Providers.OPENROUTER);
-        if (!apiKey) {
-          throw new MissingProviderKeyError(Providers.OPENROUTER);
-        }
-      return createOpenAI({
+      return createOpenRouter({
         apiKey,
-        baseURL: 'https://openrouter.ai/api/v1',
         compatibility: 'strict',
         headers: getOpenRouterHeaders(),
       });
+    }
+    default: {
+      const apiKey = getProviderApiKey(Providers.OPENROUTER);
+      if (!apiKey) {
+        throw new MissingProviderKeyError(Providers.OPENROUTER);
       }
-    default:
-      {
-  const apiKey = getProviderApiKey(Providers.OPENROUTER);
-        if (!apiKey) {
-          throw new MissingProviderKeyError(Providers.OPENROUTER);
-        }
-        return createOpenAI({
-          apiKey,
-        });
-      }
+      return createOpenRouter({
+        apiKey,
+        compatibility: 'strict',
+        headers: getOpenRouterHeaders(),
+      });
+    }
   }
 };
 
-export const getLanguageModel = (m: ModelEnum, middleware?: LanguageModelV1Middleware): any => {
+export const getLanguageModel = (m: ModelEnum, _middleware?: unknown): any => {
   const model = models.find(model => model.id === m);
   const instance = getProviderInstance(model?.provider as ProviderEnumType);
-  const selectedModel = instance(model?.id || 'gpt-4o-mini')
-  // Temporarily disable middleware to fix build issues
-  // if(middleware) {
-  //   return wrapLanguageModel({model: selectedModel, middleware });
-  // }
+  const selectedModel = instance(model?.id || 'gpt-4o-mini');
+
+  // Middleware support is temporarily disabled until the new AI SDK exposes a stable middleware API.
   return selectedModel;
 };

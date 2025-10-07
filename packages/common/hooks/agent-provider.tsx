@@ -1,6 +1,13 @@
 import { useAuth } from '@repo/common/context';
 import { useWorkflowWorker } from '@repo/ai/worker';
-import { ChatMode, ChatModeConfig } from '@repo/shared/config';
+import {
+    ChatMode,
+    ChatModeConfig,
+    getModelSelectionReason,
+    selectGeminiFallback,
+    selectModelForQuery,
+    selectOpenRouterFallback,
+} from '@repo/shared/config';
 import { Answer, ThreadItem } from '@repo/shared/types';
 import { buildCoreMessagesFromThreadItems, plausible } from '@repo/shared/utils';
 import { nanoid } from 'nanoid';
@@ -34,9 +41,23 @@ export type AgentContextType = {
 
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
+const GEMINI_CHAT_MODES = new Set<ChatMode>([
+    ChatMode.GEMINI_2_5_FLASH,
+    ChatMode.GEMINI_2_5_PRO,
+]);
+
+const OPENROUTER_CHAT_MODES = new Set<ChatMode>([
+    ChatMode.GROK_4_FAST,
+    ChatMode.GLM_4_5_AIR,
+    ChatMode.DEEPSEEK_CHAT_V3_1,
+    ChatMode.DEEPSEEK_R1,
+    ChatMode.GPT_OSS_120B,
+    ChatMode.DOLPHIN_MISTRAL_24B_VENICE,
+]);
+
 export const AgentProvider = ({ children }: { children: ReactNode }) => {
     const { threadId: currentThreadId } = useParams();
-    const { isSignedIn } = useAuth();
+    const { isSignedIn, userId } = useAuth();
 
     const {
         updateThreadItem,
@@ -163,6 +184,21 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                         : prevItem.thinkingProcess;
             }
 
+            const nextMetadata: Record<string, any> = prevItem.metadata
+                ? { ...prevItem.metadata }
+                : {};
+
+            if (eventData?.requestedMode) {
+                nextMetadata.requestedMode = eventData.requestedMode;
+            }
+
+            if (eventData?.modeSelectionReason) {
+                nextMetadata.selectionReason = eventData.modeSelectionReason;
+            }
+
+            const metadata =
+                Object.keys(nextMetadata).length > 0 ? nextMetadata : prevItem.metadata;
+
             const updatedItem: ThreadItem = {
                 ...prevItem,
                 query: eventData?.query || prevItem.query || '',
@@ -178,6 +214,7 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 object: eventData?.object || prevItem.object,
                 createdAt: prevItem.createdAt || new Date(),
                 updatedAt: new Date(),
+                metadata,
                 ...(eventType === 'answer'
                     ? {
                           answer: nextAnswer,
@@ -591,8 +628,35 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
             const optimisticAiThreadItemId = branchParentId
                 ? nanoid()
                 : existingThreadItemId || nanoid();
-            const query = formData.get('query') as string;
-            const imageAttachment = formData.get('imageAttachment') as string;
+            const query = (formData.get('query') as string) || '';
+            const rawImageAttachment = formData.get('imageAttachment');
+            const imageAttachment =
+                typeof rawImageAttachment === 'string' && rawImageAttachment.trim().length > 0
+                    ? rawImageAttachment
+                    : undefined;
+
+            const requestedMode = mode;
+            let resolvedMode = requestedMode;
+            let modelSelectionReason: string | null = null;
+            const userKeysSnapshot = apiKeys();
+            const hasUserGeminiKey = !!userKeysSnapshot.GEMINI_API_KEY;
+            const hasUserOpenRouterKey = !!userKeysSnapshot.OPENROUTER_API_KEY;
+
+            if (requestedMode === ChatMode.Auto) {
+                resolvedMode = selectModelForQuery(query, Boolean(imageAttachment));
+                modelSelectionReason = getModelSelectionReason(query, resolvedMode);
+
+                const resolvedUsesGemini = GEMINI_CHAT_MODES.has(resolvedMode);
+                const resolvedUsesOpenRouter = OPENROUTER_CHAT_MODES.has(resolvedMode);
+
+                if (resolvedUsesGemini && !hasUserGeminiKey && hasUserOpenRouterKey) {
+                    resolvedMode = selectOpenRouterFallback(query);
+                    modelSelectionReason = `${getModelSelectionReason(query, resolvedMode)} • Using your OpenRouter API key`;
+                } else if (resolvedUsesOpenRouter && !hasUserOpenRouterKey && hasUserGeminiKey) {
+                    resolvedMode = selectGeminiFallback(query, Boolean(imageAttachment));
+                    modelSelectionReason = `${getModelSelectionReason(query, resolvedMode)} • Using your Gemini API key`;
+                }
+            }
 
             const inferredBranchRootId = branchParentId
                 ? branchSourceItem?.branchRootId || branchParentId
@@ -617,8 +681,15 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 parentId: parentThreadItemId || undefined,
                 query,
                 imageAttachment,
-                mode,
+                mode: resolvedMode,
                 branchRootId,
+                metadata:
+                    requestedMode === ChatMode.Auto
+                        ? {
+                              requestedMode,
+                              selectionReason: modelSelectionReason,
+                          }
+                        : undefined,
             };
 
             createThreadItem(aiThreadItem);
@@ -628,7 +699,8 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
 
             plausible.trackEvent('send_message', {
                 props: {
-                    mode,
+                    mode: resolvedMode,
+                    requestedMode,
                 },
             });
 
@@ -639,7 +711,7 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 imageAttachment,
             });
 
-            if (hasApiKeyForChatMode(mode)) {
+            if (hasApiKeyForChatMode(resolvedMode)) {
                 const abortController = new AbortController();
                 setAbortController(abortController);
                 setIsGenerating(true);
@@ -652,7 +724,7 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 });
 
                 startWorkflow({
-                    mode,
+                    mode: resolvedMode,
                     question: query,
                     threadId,
                     messages: coreMessages,
@@ -660,11 +732,14 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                     threadItemId: optimisticAiThreadItemId,
                     parentThreadItemId,
                     customInstructions,
-                    apiKeys: apiKeys(),
+                    apiKeys: userKeysSnapshot,
+                    userId: userId ?? undefined,
                 });
             } else {
                 runAgent({
-                    mode: newChatMode || chatMode,
+                    mode: resolvedMode,
+                    requestedMode,
+                    modeSelectionReason: modelSelectionReason ?? undefined,
                     prompt: query,
                     threadId,
                     messages: coreMessages,

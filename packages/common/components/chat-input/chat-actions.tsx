@@ -15,6 +15,7 @@ import {
     IconChevronLeft,
     IconChevronDown,
     IconChevronRight,
+    IconSparkles,
     IconNorthStar,
     IconPhoto,
     IconPaperclip,
@@ -70,6 +71,16 @@ export const chatOptions: ChatModeOption[] = [
 ];
 
 export const modelOptions: ChatModeOption[] = [
+    {
+        label: 'Auto (Recommended)',
+        description: 'Let the assistant pick the best model for your question.',
+        value: ChatMode.Auto,
+        icon: IconSparkles,
+        iconClassName: 'text-amber-500 dark:text-amber-300',
+        badge: 'Smart',
+        badgeClassName:
+            'border border-amber-200/70 bg-amber-100 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200',
+    },
     {
         label: 'Gemini 2.5 Flash',
         value: ChatMode.GEMINI_2_5_FLASH,

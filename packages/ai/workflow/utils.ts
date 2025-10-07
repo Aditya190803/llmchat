@@ -128,6 +128,18 @@ export const generateText = async ({
                 throw new Error('Operation aborted');
             }
 
+            const chunkType = (chunk as any)?.type as string | undefined;
+
+            if (chunkType === 'stream-start') {
+                // New chunk emitted by the AI SDK; no-op for compatibility
+                continue;
+            }
+
+            if (chunkType === 'response-metadata') {
+                // Metadata chunks can be safely ignored for now
+                continue;
+            }
+
             if (chunk.type === 'text-delta') {
                 fullText += chunk.textDelta;
                 onChunk?.(chunk.textDelta, fullText);
@@ -552,8 +564,8 @@ export const sendEvents = (events?: TypedEventEmitter<WorkflowEventSchema>) => {
     const updateStep = (params: {
         stepId: number;
         text?: string;
-        stepStatus: 'PENDING' | 'COMPLETED';
-        subSteps: Record<string, { status: 'PENDING' | 'COMPLETED'; data?: any }>;
+        stepStatus: 'PENDING' | 'COMPLETED' | 'ERROR';
+        subSteps: Record<string, { status: 'PENDING' | 'COMPLETED' | 'ERROR'; data?: any }>;
     }) => {
         const { stepId, text, stepStatus, subSteps } = params;
         events?.update('steps', prev => ({
@@ -611,7 +623,7 @@ export const sendEvents = (events?: TypedEventEmitter<WorkflowEventSchema>) => {
     }: {
         text?: string;
         finalText?: string;
-        status?: 'PENDING' | 'COMPLETED';
+        status?: 'PENDING' | 'COMPLETED' | 'ERROR';
         thinkingProcess?: string;
     }) => {
         events?.update('answer', prev => ({

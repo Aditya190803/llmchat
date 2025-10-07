@@ -12,10 +12,11 @@ import {
 } from '@repo/common/components';
 import { useAnimatedText } from '@repo/common/hooks';
 import { useChatStore } from '@repo/common/store';
+import { ChatMode, getChatModeName } from '@repo/shared/config';
 import { ThreadItem as ThreadItemType } from '@repo/shared/types';
 import { Alert, AlertDescription, cn } from '@repo/ui';
 import { DotSpinner } from '@repo/common/components';
-import { IconAlertCircle, IconBook } from '@tabler/icons-react';
+import { IconAlertCircle, IconBook, IconSparkles } from '@tabler/icons-react';
 import { memo, useEffect, useMemo, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
 import type { ImageGenerationResultData } from '@repo/common/components';
@@ -164,6 +165,12 @@ export const ThreadItem = memo(
             (imageGenerationResult.summary === answerText
                 ? { ...imageGenerationResult, summary: undefined }
                 : imageGenerationResult);
+
+        const requestedMode = threadItem.metadata?.requestedMode as ChatMode | undefined;
+        const selectionReason =
+            requestedMode === ChatMode.Auto
+                ? (threadItem.metadata?.selectionReason as string | undefined)
+                : undefined;
         return (
             <CitationProvider sources={threadItem.sources || []}>
                 <div className="w-full" ref={inViewRef} id={`thread-item-${threadItem.id}`}>
@@ -174,6 +181,15 @@ export const ThreadItem = memo(
                                 imageAttachment={threadItem?.imageAttachment}
                                 threadItem={threadItem}
                             />
+                        )}
+
+                        {selectionReason && (
+                            <div className="text-muted-foreground/80 flex flex-row items-center gap-1 text-xs">
+                                <IconSparkles size={14} strokeWidth={2} className="text-amber-500" />
+                                <span>
+                                    Auto selected {getChatModeName(threadItem.mode)} — {selectionReason}
+                                </span>
+                            </div>
                         )}
 
                         <div className="text-muted-foreground flex flex-row items-center gap-1.5 text-xs font-medium">

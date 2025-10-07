@@ -83,6 +83,7 @@ export type WorkflowContextSchema = {
     search_queries: string[];
     messages: CoreMessage[];
     mode: ChatMode;
+    userId?: string;
     goals: {
         id: number;
         text: string;
@@ -132,6 +133,7 @@ export const runWorkflow = ({
     onFinish,
     customInstructions,
     gl,
+    userId,
 }: {
     mcpConfig: Record<string, string>;
     mode: ChatMode;
@@ -146,6 +148,7 @@ export const runWorkflow = ({
     onFinish?: (data: any) => void;
     gl?: Geo;
     customInstructions?: string;
+    userId?: string;
 }) => {
     const langfuse = new Langfuse();
     const trace = langfuse.trace({
@@ -203,7 +206,8 @@ export const runWorkflow = ({
         threadId,
         threadItemId,
         showSuggestions,
-        onFinish: onFinish as any,
+        onFinish: onFinish || (() => {}),
+        userId,
     });
 
     // Use the typed builder
