@@ -8,6 +8,8 @@ export const completionRequestSchema = z.object({
     prompt: z.string(),
     messages: z.any(),
     mode: z.nativeEnum(ChatMode),
+    requestedMode: z.nativeEnum(ChatMode).optional(),
+    modeSelectionReason: z.string().optional(),
     maxIterations: z.number().optional(),
     mcpConfig: z.record(z.string(), z.string()).optional(),
     webSearch: z.boolean().optional(),
