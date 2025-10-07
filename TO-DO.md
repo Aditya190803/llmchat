@@ -1,15 +1,17 @@
 # To-Do List (Prioritized)
 
-1. **Make the deep research mode working** - Fix the deep research mode, which is likely not working because the same API key is being called everywhere; investigate and resolve the API key usage issue. (Highest priority as it affects core functionality and was recently requested).
+1. **Stabilize Deep Research mode API separation** - Ensure each research provider uses its dedicated credentials so concurrent deep-research requests don’t collide or exhaust a shared key.
 
-2. **Fix image generation** - Make it working (affects core functionality).
+2. **Harden image generation workflow** - Add retries, better error surfacing, and fallback models in `packages/ai/workflow/tasks/image-generation.ts` so user prompts reliably return images even when Gemini throttles or fails.
 
-3. **Fix thinking display in responses** - Ensure the actual response after thinking is displayed properly, not just the thinking; avoid same font styling for both, and ensure the show/hide thinking button is visible.
+3. **Implement document deletion API** - Wire a server-side endpoint so removing uploads in the document manager deletes the backing Appwrite/App storage record instead of only pruning client state.
 
-4. **Fix stop generation button position** - Ensure the button stays on the right side, not on the left, as it looks weird.
+4. **Add message-level search across threads** - Extend the command palette to index conversation content (not just titles) so users can jump to prior answers quickly.
 
-5. **Add don't show modes in rewrite, just models, and readjust the order of models according to you on /chat** - Update the rewrite interface to hide modes and display only models, then reorder the models based on your preferences on the /chat page (e.g., prioritize advanced models like GPT-4, Claude, then others like Llama, Mistral for better user experience).
+5. **Support conversation export & sharing** - Provide options to save a thread to Markdown/PDF and generate shareable links with redaction controls.
 
-6. **Save user chats on cloud if logged in** - Implement cloud saving for logged-in users, while keeping existing local saving for non-logged-in users.
+6. **Introduce automated thread digests** - Generate rolling summaries after long sessions so users can resume with a concise recap and key sources.
 
-7. **Add branch switching for rewrites** - Enable rewrites to show as different branches with ability to switch back and forth (lower priority, enhancement feature).
+7. **Expose customizable keyboard shortcuts** - Offer a shortcut manager or cheat-sheet modal to tailor power-user flows beyond the current Cmd/Ctrl+K launcher.
+
+8. **Surface proactive health indicators** - Display connectivity/model quota warnings in the UI (e.g., near the cost tracker) so users understand rate-limit states before sending prompts.
