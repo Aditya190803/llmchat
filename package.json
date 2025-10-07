@@ -1,32 +1,37 @@
 {
-    "private": true,
-    "scripts": {
-        "build": "turbo run build",
-        "dev": "turbo run dev",
-        "lint": "turbo run lint",
-        "clean": "turbo run clean && rm -rf node_modules",
-        "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
-        "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\"",
-        "setup-appwrite": "bun run scripts/setup-appwrite.ts"
-    },
-    "devDependencies": {
-        "@typescript-eslint/parser": "^8.25.0",
-        "browserslist": "^4.26.2",
-        "eslint": "^9.21.0",
-        "eslint-plugin-prettier": "^5.2.3",
-        "globals": "^16.0.0",
-        "prettier": "^3.2.5",
-        "prettier-plugin-tailwindcss": "^0.5.12",
-        "tsconfig-paths-webpack-plugin": "^4.2.0",
-        "turbo": "latest",
-        "vercel": "^48.1.6"
-    },
-    "packageManager": "bun@1.1.19",
-    "workspaces": [
-        "apps/*",
-        "packages/*"
-    ],
-    "dependencies": {
-        "caniuse-lite": "^1.0.30001745"
-    }
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "setup-appwrite": "bun run scripts/setup-appwrite.ts"
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "^8.25.0",
+    "browserslist": "^4.26.2",
+    "eslint": "^9.21.0",
+    "eslint-plugin-prettier": "^5.2.3",
+    "globals": "^16.0.0",
+    "prettier": "^3.2.5",
+    "prettier-plugin-tailwindcss": "^0.5.12",
+    "tsconfig-paths-webpack-plugin": "^4.2.0",
+    "turbo": "^2.4.4",
+    "vercel": "^48.1.6"
+  },
+  "packageManager": "bun@1.1.19",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "caniuse-lite": "^1.0.30001745"
+  },
+  "trustedDependencies": [
+    "@repo/prisma",
+    "chatbot-web",
+    "core-js"
+  ]
 }
