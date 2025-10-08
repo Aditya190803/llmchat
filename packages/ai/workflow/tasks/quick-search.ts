@@ -11,6 +11,7 @@ import {
     handleError,
     sendEvents,
 } from '../utils';
+import { prepareReaderResults } from '../utils/search-helpers';
 
 const buildWebSearchPrompt = (results: TReaderResult[]): string => {
     const today = new Date().toLocaleDateString();
@@ -28,7 +29,7 @@ ${results
     \n\n
     ### Title: ${result.title}
     \n\n
-    ### Snippet: ${result.markdown}
+    ### Snippet: ${result.markdown?.trim() || '(Content unavailable. Visit the source link for details.)'}
 </result>
 `
     )
@@ -188,6 +189,17 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             30000
         );
 
+        let preparedReaderResults = prepareReaderResults(webpageReader);
+
+        if (!preparedReaderResults.length) {
+            preparedReaderResults = results.slice(0, 5).map((result: any) => ({
+                success: true,
+                title: result.title,
+                url: result.link,
+                markdown: result.snippet || '',
+            }));
+        }
+
         // Mark read as COMPLETED and wrapup as PENDING
         updateStep({
             stepId: searchStepId,
@@ -209,7 +221,7 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             },
         });
 
-        const prompt = buildWebSearchPrompt(webpageReader);
+        const prompt = buildWebSearchPrompt(preparedReaderResults);
 
         updateAnswer({
             text: '',

@@ -4,11 +4,11 @@ export enum ChatMode {
     Deep = 'deep',
     GEMINI_2_5_PRO = 'gemini-pro-2.5',
     GEMINI_2_5_FLASH = 'gemini-flash-2.5',
-    GROK_4_FAST = 'grok-4-fast',
     GLM_4_5_AIR = 'glm-4-5-air',
     DEEPSEEK_CHAT_V3_1 = 'deepseek-chat-v3-1',
     DEEPSEEK_R1 = 'deepseek-r1',
-    GPT_OSS_120B = 'gpt-oss-120b',
+    LONGCAT_FLASH_CHAT = 'longcat-flash-chat',
+    GPT_OSS_20B = 'gpt-oss-20b',
     DOLPHIN_MISTRAL_24B_VENICE = 'dolphin-mistral-24b-venice',
     DOCUMENT_QA = 'document-qa',
     IMAGE_GENERATION = 'image-generation',
@@ -64,15 +64,6 @@ export const ChatModeConfig: Record<
         nativeInternetAccess: true,
         isAuthRequired: false,
     },
-    [ChatMode.GROK_4_FAST]: {
-        webSearch: true,
-        imageUpload: false,
-        retry: true,
-        documentAnalysis: true,
-        nativeInternetAccess: true,
-        isNew: true,
-        isAuthRequired: false,
-    },
     [ChatMode.GLM_4_5_AIR]: {
         webSearch: true,
         imageUpload: true,
@@ -100,7 +91,16 @@ export const ChatModeConfig: Record<
         isNew: true,
         isAuthRequired: false,
     },
-    [ChatMode.GPT_OSS_120B]: {
+    [ChatMode.LONGCAT_FLASH_CHAT]: {
+        webSearch: true,
+        imageUpload: false,
+        retry: true,
+        documentAnalysis: true,
+        nativeInternetAccess: true,
+        isNew: true,
+        isAuthRequired: false,
+    },
+    [ChatMode.GPT_OSS_20B]: {
         webSearch: true,
         imageUpload: true,
         retry: true,
@@ -150,16 +150,16 @@ export const getChatModeName = (mode: ChatMode) => {
             return 'Gemini 2.5 Pro';
         case ChatMode.GEMINI_2_5_FLASH:
             return 'Gemini 2.5 Flash';
-        case ChatMode.GROK_4_FAST:
-            return 'Grok 4 Fast';
         case ChatMode.GLM_4_5_AIR:
             return 'GLM 4.5 Air';
         case ChatMode.DEEPSEEK_CHAT_V3_1:
             return 'DeepSeek Chat v3.1';
         case ChatMode.DEEPSEEK_R1:
             return 'DeepSeek R1';
-        case ChatMode.GPT_OSS_120B:
-            return 'GPT-OSS 120B';
+        case ChatMode.LONGCAT_FLASH_CHAT:
+            return 'LongCat Flash Chat';
+        case ChatMode.GPT_OSS_20B:
+            return 'GPT-OSS 20B';
         case ChatMode.DOLPHIN_MISTRAL_24B_VENICE:
             return 'Dolphin Mistral 24B Venice';
         case ChatMode.DOCUMENT_QA:
@@ -246,7 +246,7 @@ export const selectModelForQuery = (query: string, hasImage: boolean = false): C
     const newsScore = newsIndicators.filter(word => lowerQuery.includes(word)).length;
 
     if (recentYearMentions || newsScore >= 2) {
-        return ChatMode.GROK_4_FAST; // Fast with internet access
+    return ChatMode.LONGCAT_FLASH_CHAT; // Fast with internet access
     }
 
     // Research-intensive queries (long, complex questions)
@@ -313,7 +313,7 @@ export const getModelSelectionReason = (query: string, selectedModel: ChatMode):
         case ChatMode.DEEPSEEK_R1:
             return 'Advanced reasoning with chain-of-thought';
 
-        case ChatMode.GROK_4_FAST:
+        case ChatMode.LONGCAT_FLASH_CHAT:
             return 'Real-time information with internet access';
 
         case ChatMode.GLM_4_5_AIR:
@@ -389,7 +389,7 @@ export const selectOpenRouterFallback = (query: string): ChatMode => {
         new RegExp(`\\b(${currentYear}|${currentYear - 1}|202[0-9])\\b`, 'g')
     );
     if (recentYearMentions || newsIndicators.filter(word => lowerQuery.includes(word)).length >= 2) {
-        return ChatMode.GROK_4_FAST;
+        return ChatMode.LONGCAT_FLASH_CHAT;
     }
 
     const creativeIndicators = [

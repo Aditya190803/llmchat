@@ -10,7 +10,7 @@ import {
 import type { LanguageModelUsage } from 'ai';
 import { format } from 'date-fns';
 import { ZodSchema } from 'zod';
-import { ModelEnum } from '../models';
+import { ModelEnum, models } from '../models';
 import { getLanguageModel } from '../providers';
 import { WorkflowEventSchema } from './flow';
 import { generateErrorMessage } from './tasks/utils';
@@ -60,6 +60,87 @@ export class ChunkBuffer {
     }
 }
 
+const OPENROUTER_FALLBACK_MODELS: Partial<Record<ModelEnum, ModelEnum>> = {
+    [ModelEnum.LONGCAT_FLASH_CHAT]: ModelEnum.DEEPSEEK_CHAT_V3_1,
+    [ModelEnum.GLM_4_5_AIR]: ModelEnum.DEEPSEEK_CHAT_V3_1,
+    [ModelEnum.GPT_OSS_20B]: ModelEnum.DEEPSEEK_CHAT_V3_1,
+    [ModelEnum.DOLPHIN_MISTRAL_24B_VENICE]: ModelEnum.DEEPSEEK_CHAT_V3_1,
+    [ModelEnum.DEEPSEEK_R1]: ModelEnum.DEEPSEEK_CHAT_V3_1,
+};
+
+const extractTextDelta = (chunk: unknown): string | undefined => {
+    if (!chunk || typeof chunk !== 'object') {
+        return undefined;
+    }
+
+    const part = chunk as Record<string, unknown>;
+    const type = typeof part.type === 'string' ? (part.type as string) : undefined;
+
+    if (type === 'finish' || type === 'error') {
+        return undefined;
+    }
+
+    if (typeof part.textDelta === 'string') {
+        return part.textDelta;
+    }
+
+    if (typeof part.delta === 'string') {
+        return part.delta;
+    }
+
+    if (part.delta && typeof part.delta === 'object') {
+        const delta = part.delta as Record<string, unknown>;
+
+        if (typeof delta.text === 'string') {
+            return delta.text;
+        }
+
+        if (Array.isArray(delta.content)) {
+            const joined = (delta.content as unknown[])
+                .map(item => {
+                    if (!item || typeof item !== 'object') {
+                        return '';
+                    }
+                    const contentPart = item as Record<string, unknown>;
+                    if (typeof contentPart.text === 'string') {
+                        return contentPart.text;
+                    }
+                    return '';
+                })
+                .join('');
+
+            if (joined.length > 0) {
+                return joined;
+            }
+        }
+    }
+
+    if (typeof part.text === 'string') {
+        return part.text;
+    }
+
+    return undefined;
+};
+
+const isOpenRouterModel = (modelId: ModelEnum): boolean => {
+    return models.some(model => model.id === modelId && model.provider === 'openrouter');
+};
+
+const shouldAttemptOpenRouterFallback = (error: unknown, modelId: ModelEnum): boolean => {
+    if (!isOpenRouterModel(modelId)) {
+        return false;
+    }
+
+    const statusCode = (error as any)?.statusCode;
+    const message = typeof (error as any)?.message === 'string' ? (error as any).message : '';
+
+    if (statusCode === 404) {
+        return true;
+    }
+
+    return message.includes('No endpoints found');
+};
+
 export const generateText = async ({
     prompt,
     model,
@@ -88,8 +169,13 @@ export const generateText = async ({
     text: string;
     usage?: LanguageModelUsage;
     durationMs: number;
+    model: ModelEnum;
+    attemptedModels: ModelEnum[];
+    usedFallback: boolean;
 }> => {
-    try {
+    const attemptedModels: ModelEnum[] = [];
+
+    const runWithModel = async (modelId: ModelEnum) => {
         if (signal?.aborted) {
             throw new Error('Operation aborted');
         }
@@ -99,80 +185,125 @@ export const generateText = async ({
             separator: '\n',
         });
 
-        const selectedModel = getLanguageModel(model, middleware);
-        const { fullStream } = !!messages?.length
-            ? streamText({
-                  system: prompt,
-                  model: selectedModel,
-                  messages,
-                  tools,
-                  maxSteps,
-                  toolChoice: toolChoice as any,
-                  abortSignal: signal,
-              })
-            : streamText({
-                  prompt,
-                  model: selectedModel,
-                  tools,
-                  maxSteps,
-                  toolChoice: toolChoice as any,
-                  abortSignal: signal,
-              });
+        const selectedModel = getLanguageModel(modelId, middleware);
         let fullText = '';
         let reasoning = '';
         let usage: LanguageModelUsage | undefined;
         const startTime = Date.now();
 
-        for await (const chunk of fullStream) {
-            if (signal?.aborted) {
-                throw new Error('Operation aborted');
-            }
+        try {
+            const { fullStream } = !!messages?.length
+                ? streamText({
+                      system: prompt,
+                      model: selectedModel,
+                      messages,
+                      tools,
+                      maxSteps,
+                      toolChoice: toolChoice as any,
+                      abortSignal: signal,
+                  })
+                : streamText({
+                      prompt,
+                      model: selectedModel,
+                      tools,
+                      maxSteps,
+                      toolChoice: toolChoice as any,
+                      abortSignal: signal,
+                  });
 
-            const chunkType = (chunk as any)?.type as string | undefined;
+            for await (const chunk of fullStream) {
+                if (signal?.aborted) {
+                    throw new Error('Operation aborted');
+                }
 
-            if (chunkType === 'stream-start') {
-                // New chunk emitted by the AI SDK; no-op for compatibility
-                continue;
-            }
+                const chunkType = typeof (chunk as any)?.type === 'string' ? ((chunk as any).type as string) : undefined;
 
-            if (chunkType === 'response-metadata') {
-                // Metadata chunks can be safely ignored for now
-                continue;
-            }
+                if (chunkType === 'stream-start' || chunkType === 'response-metadata') {
+                    continue;
+                }
 
-            if (chunk.type === 'text-delta') {
-                fullText += chunk.textDelta;
-                onChunk?.(chunk.textDelta, fullText);
-            }
-            if (chunk.type === 'reasoning') {
-                reasoning += chunk.textDelta;
-                onReasoning?.(chunk.textDelta, reasoning);
-            }
-            if (chunk.type === 'tool-call') {
-                onToolCall?.(chunk);
-            }
-            if (chunk.type === ('tool-result' as any)) {
-                onToolResult?.(chunk);
-            }
+                const textDelta = extractTextDelta(chunk);
 
-            if (chunk.type === 'finish') {
-                usage = chunk.usage as LanguageModelUsage | undefined;
-            }
+                if (
+                    chunkType === 'reasoning' ||
+                    chunkType === 'reasoning-delta' ||
+                    (typeof chunkType === 'string' && chunkType.includes('reasoning'))
+                ) {
+                    if (textDelta) {
+                        reasoning += textDelta;
+                        onReasoning?.(textDelta, reasoning);
+                    }
+                    continue;
+                }
 
-            if (chunk.type === 'error') {
-                console.error(chunk.error);
-                return Promise.reject(chunk.error);
+                if (textDelta) {
+                    fullText += textDelta;
+                    onChunk?.(textDelta, fullText);
+                }
+
+                if (chunk.type === 'tool-call') {
+                    onToolCall?.(chunk);
+                }
+
+                if (chunk.type === ('tool-result' as any)) {
+                    onToolResult?.(chunk);
+                }
+
+                if (chunk.type === 'finish') {
+                    usage = chunk.usage as LanguageModelUsage | undefined;
+                }
+
+                if (chunk.type === 'error') {
+                    throw chunk.error;
+                }
             }
+        } catch (error) {
+            throw error;
         }
+
         const durationMs = Date.now() - startTime;
-        return Promise.resolve({
+        return {
             text: fullText,
             usage,
             durationMs,
-        });
-    } catch (error) {
-        console.error(error);
-        return Promise.reject(error);
+        };
+    };
+
+    let currentModel = model;
+    let usedFallback = false;
+
+    while (true) {
+        try {
+            const result = await runWithModel(currentModel);
+            return {
+                ...result,
+                model: currentModel,
+                attemptedModels: [...attemptedModels, currentModel],
+                usedFallback,
+            };
+        } catch (error) {
+            attemptedModels.push(currentModel);
+
+            const fallbackModel = OPENROUTER_FALLBACK_MODELS[currentModel];
+
+            if (
+                fallbackModel &&
+                !attemptedModels.includes(fallbackModel) &&
+                shouldAttemptOpenRouterFallback(error, currentModel)
+            ) {
+                console.warn(
+                    `[AI] Falling back from ${currentModel} to ${fallbackModel} due to: ${
+                        (error as any)?.message || 'unknown error'
+                    }`
+                );
+                currentModel = fallbackModel;
+                usedFallback = true;
+                continue;
+            }
+
+            console.error(error);
+            throw error;
+        }
     }
 };
 

@@ -12,6 +12,7 @@ import {
     processWebPages,
     sendEvents,
 } from '../utils';
+import { prepareWebPageContent } from '../utils/search-helpers';
 
 type SearchResult = {
     title: string;
@@ -241,6 +242,18 @@ export const proSearchTask = createTask<WorkflowEventSchema, WorkflowContextSche
 
             addSources(searchResultsData);
 
+            let preparedWebContent = prepareWebPageContent(
+                webPageContent as Array<{ title: string; link: string; content: string }>
+            );
+
+            if (!preparedWebContent.length) {
+                preparedWebContent = searchResults.slice(0, 6).map(result => ({
+                    title: result.title || 'Untitled Result',
+                    link: result.link || '',
+                    content: result.snippet || '',
+                }));
+            }
+
             const reasoningBuffer = new ChunkBuffer({
                 threshold: 200,
                 breakOn: ['\n\n'],
@@ -270,7 +283,7 @@ export const proSearchTask = createTask<WorkflowEventSchema, WorkflowContextSche
             let reasoning = '';
             try {
                 const { text: generatedReasoning } = await generateText({
-                    prompt: getAnalysisPrompt(question, webPageContent),
+                    prompt: getAnalysisPrompt(question, preparedWebContent),
                     model: ModelEnum.GEMINI_2_5_FLASH,
                     messages,
                     onReasoning: chunk => {

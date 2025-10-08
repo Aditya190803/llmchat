@@ -47,11 +47,11 @@ const GEMINI_CHAT_MODES = new Set<ChatMode>([
 ]);
 
 const OPENROUTER_CHAT_MODES = new Set<ChatMode>([
-    ChatMode.GROK_4_FAST,
     ChatMode.GLM_4_5_AIR,
     ChatMode.DEEPSEEK_CHAT_V3_1,
     ChatMode.DEEPSEEK_R1,
-    ChatMode.GPT_OSS_120B,
+    ChatMode.LONGCAT_FLASH_CHAT,
+    ChatMode.GPT_OSS_20B,
     ChatMode.DOLPHIN_MISTRAL_24B_VENICE,
 ]);
 

@@ -50,11 +50,11 @@ export const useApiKeysStore = create<ApiKeysState>()(
                     case ChatMode.GEMINI_2_5_PRO:
                     case ChatMode.IMAGE_GENERATION:
                         return hasGeminiKey;
-                    case ChatMode.GROK_4_FAST:
+                    case ChatMode.LONGCAT_FLASH_CHAT:
                     case ChatMode.GLM_4_5_AIR:
                     case ChatMode.DEEPSEEK_CHAT_V3_1:
                     case ChatMode.DEEPSEEK_R1:
-                    case ChatMode.GPT_OSS_120B:
+                    case ChatMode.GPT_OSS_20B:
                     case ChatMode.DOLPHIN_MISTRAL_24B_VENICE:
                         return hasOpenRouterKey;
                     default:

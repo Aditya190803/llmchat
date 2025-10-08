@@ -15,6 +15,10 @@ export const generateErrorMessage = (error: Error | string) => {
             return 'You are not authorized to access this resource. Please try again.';
         }
 
+        if (error.message.includes('No endpoints found')) {
+            return 'The selected OpenRouter model is unavailable right now. Please choose a different model or update your settings.';
+        }
+
         if (error.message.toLowerCase().includes('timeout')) {
             return 'The request timed out. Please try again.';
         }

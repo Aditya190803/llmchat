@@ -154,7 +154,7 @@ const CHANGELOG_ENTRIES: ChangelogEntry[] = [
             'Removed legacy providers (OpenAI, Anthropic, Together AI, Fireworks)',
             'Added comprehensive Google Gemini provider support',
             'Integrated OpenRouter for community models access',
-            'Added 5 new OpenRouter free models: Grok 4 Fast, GLM 4.5 Air, DeepSeek Chat v3.1, GPT-OSS 120B, Dolphin Mistral 24B Venice',
+            'Refreshed OpenRouter lineup: added LongCat Flash Chat, GLM 4.5 Air, DeepSeek Chat v3.1, GPT-OSS 20B, Dolphin Mistral 24B Venice',
             'Updated Gemini model identifiers for 2.5 Pro support',
             'Simplified model selection to Gemini 2.0 and 2.5 Flash',
             'Increased max tokens to 500,000 for all modes'

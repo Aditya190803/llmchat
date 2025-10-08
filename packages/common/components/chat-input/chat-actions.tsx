@@ -94,9 +94,8 @@ export const modelOptions: ChatModeOption[] = [
         value: ChatMode.DEEPSEEK_R1,
     },
     {
-        label: 'Grok 4 Fast',
-        value: ChatMode.GROK_4_FAST,
-
+        label: 'LongCat Flash Chat',
+        value: ChatMode.LONGCAT_FLASH_CHAT,
     },
     {
         label: 'GLM 4.5 Air',
@@ -107,11 +106,8 @@ export const modelOptions: ChatModeOption[] = [
         value: ChatMode.DEEPSEEK_CHAT_V3_1,
     },
     {
-        label: 'GPT-OSS 120B',
-        value: ChatMode.GPT_OSS_120B,
-        badge: 'Temporarily unavailable',
-        badgeClassName: 'border border-amber-200/70 bg-amber-100 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200',
-        disabled: true,
+        label: 'GPT-OSS 20B',
+        value: ChatMode.GPT_OSS_20B,
     },
     {
         label: 'Dolphin Mistral 24B Venice',
