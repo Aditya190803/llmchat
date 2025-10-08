@@ -212,7 +212,12 @@ export const ThreadItem = memo(
 
                         {threadItem.steps && (
                             <Steps
-                                steps={Object.values(threadItem?.steps || {})}
+                                steps={Object.values(threadItem?.steps || {}).filter(
+                                    step => 
+                                        typeof step.id === 'string' && 
+                                        !step.id.includes('reasoning') && 
+                                        !step.id.includes('thinking')
+                                )}
                                 threadItem={threadItem}
                             />
                         )}
