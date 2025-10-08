@@ -136,7 +136,13 @@ export const ChatModeConfig: Record<
     },
 };
 
+export const DISABLED_CHAT_MODES = new Set<ChatMode>([
+    ChatMode.DEEPSEEK_CHAT_V3_1, // Temporarily unavailable
+]);
 
+export const isChatModeDisabled = (mode: ChatMode): boolean => {
+    return DISABLED_CHAT_MODES.has(mode);
+};
 
 export const getChatModeName = (mode: ChatMode) => {
     switch (mode) {
@@ -182,7 +188,6 @@ export const selectModelForQuery = (query: string, hasImage: boolean = false): C
         return ChatMode.GEMINI_2_5_FLASH; // Fast multimodal
     }
 
-    // Code-heavy queries (prioritize DeepSeek for coding)
     const codeIndicators = [
         'code',
         'function',
@@ -208,10 +213,13 @@ export const selectModelForQuery = (query: string, hasImage: boolean = false): C
     ];
     const codeScore = codeIndicators.filter(word => lowerQuery.includes(word)).length;
     if (codeScore >= 2) {
-        return ChatMode.DEEPSEEK_CHAT_V3_1; // Best for coding
+        // Prefer DeepSeek Chat v3.1 for coding, fallback to DeepSeek R1 if unavailable
+        if (!isChatModeDisabled(ChatMode.DEEPSEEK_CHAT_V3_1)) {
+            return ChatMode.DEEPSEEK_CHAT_V3_1; // Best for coding
+        }
+        return ChatMode.DEEPSEEK_R1; // Alternative for coding with reasoning
     }
 
-    // Math and reasoning (DeepSeek R1 for chain-of-thought)
     const mathIndicators = [
         'calculate',
         'solve',
@@ -284,8 +292,11 @@ export const selectModelForQuery = (query: string, hasImage: boolean = false): C
         return ChatMode.GEMINI_2_5_FLASH;
     }
 
-    // Medium queries get balanced model
-    return ChatMode.DEEPSEEK_CHAT_V3_1;
+    // Medium queries get balanced model (fallback to Flash if DeepSeek unavailable)
+    if (!isChatModeDisabled(ChatMode.DEEPSEEK_CHAT_V3_1)) {
+        return ChatMode.DEEPSEEK_CHAT_V3_1;
+    }
+    return ChatMode.GEMINI_2_5_FLASH;
 };
 
 /**
@@ -351,7 +362,11 @@ export const selectOpenRouterFallback = (query: string): ChatMode => {
         'git',
     ];
     if (codeIndicators.filter(word => lowerQuery.includes(word)).length >= 2) {
-        return ChatMode.DEEPSEEK_CHAT_V3_1;
+        // Fallback to available models
+        if (!isChatModeDisabled(ChatMode.DEEPSEEK_CHAT_V3_1)) {
+            return ChatMode.DEEPSEEK_CHAT_V3_1;
+        }
+        return ChatMode.DEEPSEEK_R1;
     }
 
     const mathIndicators = [
@@ -409,7 +424,11 @@ export const selectOpenRouterFallback = (query: string): ChatMode => {
         return ChatMode.GLM_4_5_AIR;
     }
 
-    return ChatMode.DEEPSEEK_CHAT_V3_1;
+    // Default fallback to available models
+    if (!isChatModeDisabled(ChatMode.DEEPSEEK_CHAT_V3_1)) {
+        return ChatMode.DEEPSEEK_CHAT_V3_1;
+    }
+    return ChatMode.LONGCAT_FLASH_CHAT;
 };
 
 export const selectGeminiFallback = (query: string, hasImage: boolean = false): ChatMode => {

@@ -4,7 +4,7 @@ import { useAuth } from '@repo/common/context';
 import { DotSpinner } from '@repo/common/components';
 import { useBranchNavigation, BRANCH_NAV_BUTTON_CLASSES } from '../thread/components/branch-switcher';
 import { useChatStore } from '@repo/common/store';
-import { ChatMode, ChatModeConfig } from '@repo/shared/config';
+import { ChatMode, ChatModeConfig, isChatModeDisabled } from '@repo/shared/config';
 import { Button, cn, Kbd } from '@repo/ui';
 import * as DropdownMenuComponents from '@repo/ui/src/components/dropdown-menu';
 import type { ThreadItem } from '@repo/shared/types';
@@ -104,6 +104,9 @@ export const modelOptions: ChatModeOption[] = [
     {
         label: 'DeepSeek Chat v3.1',
         value: ChatMode.DEEPSEEK_CHAT_V3_1,
+        badge: 'Temporarily unavailable',
+        badgeClassName: 'border border-amber-200/70 bg-amber-100 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200',
+        disabled: isChatModeDisabled(ChatMode.DEEPSEEK_CHAT_V3_1),
     },
     {
         label: 'GPT-OSS 20B',
