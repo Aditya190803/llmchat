@@ -9,8 +9,8 @@ import {
 } from 'ai';
 import { format } from 'date-fns';
 import { ZodSchema } from 'zod';
-import { ModelEnum } from '../models';
-import { getLanguageModel } from '../providers';
+import { AI_GATEWAY_BASE_URL, getLanguageModel } from '../providers';
+import { isImageGenerationModel } from '@repo/shared/config';
 import { WorkflowEventSchema } from './flow';
 import { generateErrorMessage } from './tasks/utils';
 
@@ -73,7 +73,7 @@ export const generateText = async ({
     maxSteps = 2,
 }: {
     prompt: string;
-    model: ModelEnum;
+    model: string;
     onChunk?: (chunk: string, fullText: string) => void;
     messages?: CoreMessage[];
     onReasoning?: (chunk: string, fullText: string) => void;
@@ -148,6 +148,89 @@ export const generateText = async ({
     }
 };
 
+export type GatewayImageResult = {
+    text: string;
+    images: Array<{ data: string; mimeType: string }>;
+};
+
+const toGatewayMessage = (message: CoreMessage) => ({
+    role: message.role,
+    content:
+        typeof message.content === 'string'
+            ? message.content
+            : message.content.map(part => {
+                  if (part.type === 'text') return { type: 'text', text: part.text };
+                  if (part.type === 'image') {
+                      const image = typeof part.image === 'string' ? part.image : '';
+                      return { type: 'image_url', image_url: { url: image } };
+                  }
+                  return part;
+              }),
+});
+
+export const generateGatewayImage = async ({
+    model,
+    prompt,
+    messages,
+    signal,
+}: {
+    model: string;
+    prompt: string;
+    messages?: CoreMessage[];
+    signal?: AbortSignal;
+}): Promise<GatewayImageResult> => {
+    if (!isImageGenerationModel(model)) {
+        throw new Error(`Model ${model} does not support image generation`);
+    }
+
+    const key = process.env.AI_GATEWAY_API_KEY;
+    if (!key) throw new Error('AI_GATEWAY_API_KEY is not configured on the server');
+
+    const response = await fetch(`${AI_GATEWAY_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+            authorization: `Bearer ${key}`,
+            'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+            model,
+            messages: [
+                { role: 'system', content: 'Generate an image that matches the user request.' },
+                ...(messages?.length ? messages.map(toGatewayMessage) : [{ role: 'user', content: prompt }]),
+            ],
+            modalities: ['text', 'image'],
+            stream: false,
+        }),
+        signal,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error?.message || `Image generation failed (${response.status})`);
+    }
+
+    const message = payload?.choices?.[0]?.message;
+    const imageParts = [
+        ...(Array.isArray(message?.images) ? message.images : []),
+        ...(Array.isArray(message?.content)
+            ? message.content.filter((part: any) => part?.type === 'image_url')
+            : []),
+    ];
+    const images = imageParts
+        .map((image: any) => image?.image_url?.url || image?.url)
+        .filter((url: unknown): url is string => typeof url === 'string')
+        .map((data: string) => ({
+            data: data.startsWith('data:') ? data : `data:image/png;base64,${data}`,
+            mimeType: data.match(/^data:([^;]+);/)?.[1] || 'image/png',
+        }));
+
+    if (!images.length) {
+        throw new Error('The image model returned no image. Please try again.');
+    }
+
+    return { text: typeof message?.content === 'string' ? message.content : '', images };
+};
+
 export const generateObject = async ({
     prompt,
     model,
@@ -156,7 +239,7 @@ export const generateObject = async ({
     signal,
 }: {
     prompt: string;
-    model: ModelEnum;
+    model: string;
     schema: ZodSchema;
     messages?: CoreMessage[];
     signal?: AbortSignal;

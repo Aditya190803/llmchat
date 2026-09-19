@@ -1,12 +1,10 @@
 'use client';
-import { useAuth } from '@clerk/nextjs';
 import {
     ImageAttachment,
     ImageDropzoneRoot,
     MessagesRemainingBadge,
 } from '@repo/common/components';
 import { useImageAttachment } from '@repo/common/hooks';
-import { ChatModeConfig } from '@repo/shared/config';
 import { cn, Flex } from '@repo/ui';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useParams, usePathname, useRouter } from 'next/navigation';
@@ -30,13 +28,11 @@ export const ChatInput = ({
     showBottomBar?: boolean;
     isFollowUp?: boolean;
 }) => {
-    const { isSignedIn } = useAuth();
-
     const { threadId: currentThreadId } = useParams();
     const { editor } = useChatEditor({
         placeholder: isFollowUp ? 'Ask follow up' : 'Ask anything',
         onInit: ({ editor }) => {
-            if (typeof window !== 'undefined' && !isFollowUp && !isSignedIn) {
+            if (typeof window !== 'undefined' && !isFollowUp) {
                 const draftMessage = window.localStorage.getItem('draft-message');
                 if (draftMessage) {
                     editor.commands.setContent(draftMessage, true, { preserveWhitespace: true });
@@ -65,14 +61,6 @@ export const ChatInput = ({
     const { push } = useRouter();
     const chatMode = useChatStore(state => state.chatMode);
     const sendMessage = async () => {
-        if (
-            !isSignedIn &&
-            !!ChatModeConfig[chatMode as keyof typeof ChatModeConfig]?.isAuthRequired
-        ) {
-            push('/sign-in');
-            return;
-        }
-
         if (!editor?.getText()) {
             return;
         }

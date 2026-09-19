@@ -65,7 +65,7 @@ ${s}
 
         const text = await generateText({
             prompt,
-            model: ModelEnum.Deepseek_R1,
+            model: ModelEnum.GATEWAY_OPUS_THINKING,
             messages: messages as any,
             signal,
             onReasoning: reasoning => {

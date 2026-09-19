@@ -1,12 +1,10 @@
-import { useAuth, useUser } from '@clerk/nextjs';
-import { useWorkflowWorker } from '@repo/ai/worker';
-import { ChatMode, ChatModeConfig } from '@repo/shared/config';
+import { ChatMode } from '@repo/shared/config';
 import { ThreadItem } from '@repo/shared/types';
 import { buildCoreMessagesFromThreadItems, plausible } from '@repo/shared/utils';
 import { nanoid } from 'nanoid';
 import { useParams, useRouter } from 'next/navigation';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo } from 'react';
-import { useApiKeysStore, useAppStore, useChatStore, useMcpToolsStore } from '../store';
+import { useChatStore, useMcpToolsStore } from '../store';
 
 export type AgentContextType = {
     runAgent: (body: any) => Promise<void>;
@@ -26,9 +24,6 @@ const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
 export const AgentProvider = ({ children }: { children: ReactNode }) => {
     const { threadId: currentThreadId } = useParams();
-    const { isSignedIn } = useAuth();
-    const { user } = useUser();
-
     const {
         updateThreadItem,
         setIsGenerating,
@@ -55,14 +50,11 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
     const { push } = useRouter();
 
     const getSelectedMCP = useMcpToolsStore(state => state.getSelectedMCP);
-    const apiKeys = useApiKeysStore(state => state.getAllKeys);
-    const hasApiKeyForChatMode = useApiKeysStore(state => state.hasApiKeyForChatMode);
-    const setShowSignInModal = useAppStore(state => state.setShowSignInModal);
 
-    // Fetch remaining credits when user changes
+    // Anonymous chat still receives an IP-based quota.
     useEffect(() => {
         fetchRemainingCredits();
-    }, [user?.id, fetchRemainingCredits]);
+    }, [fetchRemainingCredits]);
 
     // In-memory store for thread items
     const threadItemMap = useMemo(() => new Map<string, ThreadItem>(), []);
@@ -102,6 +94,7 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 ...prevItem,
                 query: eventData?.query || prevItem.query || '',
                 mode: eventData?.mode || prevItem.mode,
+                model: eventData?.model || prevItem.model || eventData?.mode || prevItem.mode,
                 threadId,
                 parentId: parentThreadItemId || prevItem.parentId,
                 id: threadItemId,
@@ -122,36 +115,6 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
             updateThreadItem(threadId, { ...updatedItem, persistToDB: true });
         },
         [threadItemMap, updateThreadItem]
-    );
-
-    const { startWorkflow, abortWorkflow } = useWorkflowWorker(
-        useCallback(
-            (data: any) => {
-                if (
-                    data?.threadId &&
-                    data?.threadItemId &&
-                    data.event &&
-                    EVENT_TYPES.includes(data.event)
-                ) {
-                    handleThreadItemUpdate(
-                        data.threadId,
-                        data.threadItemId,
-                        data.event,
-                        data,
-                        data.parentThreadItemId
-                    );
-                }
-
-                if (data.type === 'done') {
-                    setIsGenerating(false);
-                    setTimeout(fetchRemainingCredits, 1000);
-                    if (data?.threadItemId) {
-                        threadItemMap.delete(data.threadItemId);
-                    }
-                }
-            },
-            [handleThreadItemUpdate, setIsGenerating, fetchRemainingCredits, threadItemMap]
-        )
     );
 
     const runAgent = useCallback(
@@ -184,14 +147,9 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 if (!response.ok) {
                     let errorText = await response.text();
 
-                    if (response.status === 429 && isSignedIn) {
+                    if (response.status === 429) {
                         errorText =
-                            'You have reached the daily limit of requests. Please try again tomorrow or Use your own API key.';
-                    }
-
-                    if (response.status === 429 && !isSignedIn) {
-                        errorText =
-                            'You have reached the daily limit of requests. Please sign in to enjoy more requests.';
+                            'You have reached the daily limit of requests. Please try again tomorrow.';
                     }
 
                     setIsGenerating(false);
@@ -306,7 +264,7 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                     updateThreadItem(body.threadId, {
                         id: body.threadItemId,
                         status: 'ERROR',
-                        error: 'You have reached the daily limit of requests. Please try again tomorrow or Use your own API key.',
+                        error: 'You have reached the daily limit of requests. Please try again tomorrow.',
                     });
                 } else {
                     updateThreadItem(body.threadId, {
@@ -352,15 +310,6 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
             showSuggestions?: boolean;
         }) => {
             const mode = (newChatMode || chatMode) as ChatMode;
-            if (
-                !isSignedIn &&
-                !!ChatModeConfig[mode as keyof typeof ChatModeConfig]?.isAuthRequired
-            ) {
-                push('/sign-in');
-
-                return;
-            }
-
             const threadId = currentThreadId?.toString() || newThreadId;
             if (!threadId) return;
 
@@ -380,6 +329,7 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 query,
                 imageAttachment,
                 mode,
+                model: mode,
             };
 
             createThreadItem(aiThreadItem);
@@ -400,60 +350,29 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                 imageAttachment,
             });
 
-            if (hasApiKeyForChatMode(mode)) {
-                const abortController = new AbortController();
-                setAbortController(abortController);
-                setIsGenerating(true);
-
-                abortController.signal.addEventListener('abort', () => {
-                    console.info('Abort signal received');
-                    setIsGenerating(false);
-                    abortWorkflow();
-                    updateThreadItem(threadId, { id: optimisticAiThreadItemId, status: 'ABORTED' });
-                });
-
-                startWorkflow({
-                    mode,
-                    question: query,
-                    threadId,
-                    messages: coreMessages,
-                    mcpConfig: getSelectedMCP(),
-                    threadItemId: optimisticAiThreadItemId,
-                    parentThreadItemId: '',
-                    customInstructions,
-                    apiKeys: apiKeys(),
-                });
-            } else {
-                runAgent({
-                    mode: newChatMode || chatMode,
-                    prompt: query,
-                    threadId,
-                    messages: coreMessages,
-                    mcpConfig: getSelectedMCP(),
-                    threadItemId: optimisticAiThreadItemId,
-                    customInstructions,
-                    parentThreadItemId: '',
-                    webSearch: useWebSearch,
-                    showSuggestions: showSuggestions ?? true,
-                });
-            }
+            runAgent({
+                mode: newChatMode || chatMode,
+                prompt: query,
+                threadId,
+                messages: coreMessages,
+                mcpConfig: getSelectedMCP(),
+                threadItemId: optimisticAiThreadItemId,
+                customInstructions,
+                parentThreadItemId: '',
+                webSearch: useWebSearch,
+                showSuggestions: showSuggestions ?? true,
+            });
         },
         [
-            isSignedIn,
             currentThreadId,
             chatMode,
-            setShowSignInModal,
             updateThread,
             createThreadItem,
             setCurrentThreadItem,
             setIsGenerating,
             setCurrentSources,
-            abortWorkflow,
-            startWorkflow,
             customInstructions,
             getSelectedMCP,
-            apiKeys,
-            hasApiKeyForChatMode,
             updateThreadItem,
             runAgent,
         ]

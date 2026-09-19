@@ -21,11 +21,11 @@ We collect two types of information:
 
 ### How We Handle Your Data
 
-- **Local Storage**: All your data, including API keys, chat history, and messages, are stored locally on your browser using Local Storage and IndexedDB. We do not have a backend server to collect or store your data.
+- **Local Storage**: Your chat history and messages are stored locally on your browser using Local Storage and IndexedDB.
 - **Secure Requests**: When you send a message, your browser directly communicates with the API server using a secure HTTPS connection. There is no middle server, ensuring your data remains private.
 - **Proxy Requests**: For certain models, requests are forwarded through our proxy server without logging or storing any data. The proxy server simply passes your request to the model's server.
 - **No External JavaScript**: We do not run any external JavaScript on our site, ensuring high security and privacy.
-- **Data Deletion**: You can delete all your data, including API keys, configurations, and chat histories, at any time from your browser.
+- **Data Deletion**: You can delete your configurations, chat histories, and messages at any time from your browser.
 - **Tracking and Cookies**: We may use tracking and error logging tools to improve our services. Cookies might be used to enhance user experience and functionality.
 
 ### Use of Third-Party Services

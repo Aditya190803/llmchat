@@ -49,6 +49,7 @@ export type WorkflowEventSchema = {
         object?: any;
         objectType?: string;
         finalText?: string;
+        images?: Array<{ data: string; mimeType: string; alt?: string }>;
         status: Status;
     };
     sources?: {

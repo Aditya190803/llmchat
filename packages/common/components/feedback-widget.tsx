@@ -1,11 +1,9 @@
-import { useAuth } from '@clerk/nextjs';
 import { Button, Textarea } from '@repo/ui';
 import { IconCircleCheckFilled, IconHelpSmall, IconX } from '@tabler/icons-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRef, useState } from 'react';
 
 export const FeedbackWidget = () => {
-    const { userId } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,10 +33,6 @@ export const FeedbackWidget = () => {
             setIsSubmitting(false);
         }
     };
-
-    if (!userId) {
-        return null;
-    }
 
     return (
         <div className="fixed bottom-6 right-6 z-50 flex items-end justify-end">

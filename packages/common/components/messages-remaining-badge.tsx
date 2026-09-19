@@ -1,21 +1,10 @@
-import { useUser } from '@clerk/nextjs';
-import { useApiKeysStore, useAppStore, useChatStore } from '@repo/common/store';
+import { useChatStore } from '@repo/common/store';
 import { motion } from 'framer-motion';
 
 export function MessagesRemainingBadge() {
-    const { user } = useUser();
-    const chatMode = useChatStore(state => state.chatMode);
-    const hasApiKeys = useApiKeysStore(state => state.hasApiKeyForChatMode(chatMode));
     const creditLimit = useChatStore(state => state.creditLimit);
-    const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
-    const setSettingTab = useAppStore(state => state.setSettingTab);
 
-    if (
-        !creditLimit.isFetched ||
-        !user ||
-        (creditLimit?.remaining && creditLimit?.remaining > 5) ||
-        hasApiKeys
-    ) {
+    if (!creditLimit.isFetched || (creditLimit?.remaining ?? 6) > 5) {
         return null;
     }
 
@@ -30,20 +19,8 @@ export function MessagesRemainingBadge() {
             >
                 <div className="text-muted-foreground/50 text-xs">
                     {creditLimit.remaining === 0
-                        ? 'You have no credits left today.'
-                        : `You have ${creditLimit.remaining} credits left today.`}{' '}
-                    For continuous use,
-                    <span
-                        className="inline-flex shrink-0 cursor-pointer flex-row items-center gap-1 pl-1 font-medium "
-                        onClick={() => {
-                            setIsSettingsOpen(true);
-                            setSettingTab('api-keys');
-                        }}
-                    >
-                        <span className="text-muted-foreground inline-flex flex-row items-center gap-1 px-1 underline underline-offset-2">
-                            Add your own API key
-                        </span>
-                    </span>
+                        ? 'You have no credits left today. Resets tomorrow.'
+                        : `You have ${creditLimit.remaining} credits left today.`}
                 </div>
             </motion.div>
         </div>

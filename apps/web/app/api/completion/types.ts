@@ -7,7 +7,8 @@ export const completionRequestSchema = z.object({
     parentThreadItemId: z.string(),
     prompt: z.string(),
     messages: z.any(),
-    mode: z.nativeEnum(ChatMode),
+    // Built-in modes and live gateway model IDs are both valid.
+    mode: z.string().min(1),
     maxIterations: z.number().optional(),
     mcpConfig: z.record(z.string(), z.string()).optional(),
     webSearch: z.boolean().optional(),

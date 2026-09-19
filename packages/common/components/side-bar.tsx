@@ -1,5 +1,4 @@
 'use client';
-import { useClerk, useUser } from '@clerk/nextjs';
 import { FullPageLoader, HistoryItem, Logo } from '@repo/common/components';
 import { useRootContext } from '@repo/common/context';
 import { useAppStore, useChatStore } from '@repo/common/store';
@@ -8,24 +7,16 @@ import {
     Badge,
     Button,
     cn,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
     Flex,
 } from '@repo/ui';
 import {
     IconArrowBarLeft,
     IconArrowBarRight,
     IconCommand,
-    IconLogout,
     IconPinned,
     IconPlus,
     IconSearch,
-    IconSelector,
-    IconSettings,
     IconSettings2,
-    IconUser,
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import moment from 'moment';
@@ -44,8 +35,6 @@ export const Sidebar = () => {
         return [...threads].sort((a, b) => moment(b[sortBy]).diff(moment(a[sortBy])));
     };
 
-    const { isSignedIn, user } = useUser();
-    const { openUserProfile, signOut, redirectToSignIn } = useClerk();
     const clearAllThreads = useChatStore(state => state.clearAllThreads);
     const setIsSidebarOpen = useAppStore(state => state.setIsSidebarOpen);
     const isSidebarOpen = useAppStore(state => state.isSidebarOpen);
@@ -312,91 +301,16 @@ export const Sidebar = () => {
                             <IconArrowBarRight size={16} strokeWidth={2} />
                         </Button>
                     )}
-                    {isSignedIn && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <div
-                                    className={cn(
-                                        'hover:bg-quaternary bg-background shadow-subtle-xs flex w-full cursor-pointer flex-row items-center gap-3 rounded-lg px-2 py-1.5',
-                                        !isSidebarOpen && 'px-1.5'
-                                    )}
-                                >
-                                    <div className="bg-brand flex size-5 shrink-0 items-center justify-center rounded-full">
-                                        {user && user.hasImage ? (
-                                            <img
-                                                src={user?.imageUrl ?? ''}
-                                                width={0}
-                                                height={0}
-                                                className="size-full shrink-0 rounded-full"
-                                                alt={user?.fullName ?? ''}
-                                            />
-                                        ) : (
-                                            <IconUser
-                                                size={14}
-                                                strokeWidth={2}
-                                                className="text-background"
-                                            />
-                                        )}
-                                    </div>
-
-                                    {isSidebarOpen && (
-                                        <p className="line-clamp-1 flex-1 !text-sm font-medium">
-                                            {user?.fullName}
-                                        </p>
-                                    )}
-                                    {isSidebarOpen && (
-                                        <IconSelector
-                                            size={14}
-                                            strokeWidth={2}
-                                            className="text-muted-foreground"
-                                        />
-                                    )}
-                                </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
-                                    <IconSettings size={16} strokeWidth={2} />
-                                    Settings
-                                </DropdownMenuItem>
-                                {/* {!isSignedIn && (
-                                <DropdownMenuItem onClick={() => push('/sign-in')}>
-                                    <IconUser size={16} strokeWidth={2} />
-                                    Log in
-                                </DropdownMenuItem>
-                            )} */}
-                                {isSignedIn && (
-                                    <DropdownMenuItem onClick={() => openUserProfile()}>
-                                        <IconUser size={16} strokeWidth={2} />
-                                        Profile
-                                    </DropdownMenuItem>
-                                )}
-                                {isSignedIn && (
-                                    <DropdownMenuItem onClick={() => signOut()}>
-                                        <IconLogout size={16} strokeWidth={2} />
-                                        Logout
-                                    </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                    {isSidebarOpen && !isSignedIn && (
-                        <div className="flex w-full flex-col gap-1.5 p-1">
-                            <Button
-                                variant="bordered"
-                                size="sm"
-                                rounded="lg"
-                                onClick={() => {
-                                    setIsSettingsOpen(true);
-                                }}
-                            >
-                                <IconSettings2 size={14} strokeWidth={2} />
-                                Settings
-                            </Button>
-                            <Button size="sm" rounded="lg" onClick={() => push('/sign-in')}>
-                                Log in / Sign up
-                            </Button>
-                        </div>
-                    )}
+                    <Button
+                        variant="ghost"
+                        size={isSidebarOpen ? 'sm' : 'icon'}
+                        rounded="lg"
+                        tooltip={isSidebarOpen ? undefined : 'Settings'}
+                        onClick={() => setIsSettingsOpen(true)}
+                    >
+                        <IconSettings2 size={14} strokeWidth={2} />
+                        {isSidebarOpen && 'Settings'}
+                    </Button>
                 </Flex>
             </Flex>
         </div>

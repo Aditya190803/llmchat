@@ -30,7 +30,7 @@
         "zustand": "^4.5.4"
     },
     "devDependencies": {
-        "@types/react": "^18",
+        "@types/react": "^19",
         "@types/node": "latest",
         "typescript": "latest",
         "eslint": "latest",
@@ -39,6 +39,6 @@
         "drizzle-kit": "latest"
     },
     "peerDependencies": {
-        "react": "^18"
+        "react": "^19"
     }
 }

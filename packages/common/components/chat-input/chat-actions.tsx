@@ -1,8 +1,14 @@
 'use client';
-import { useUser } from '@clerk/nextjs';
 import { DotSpinner } from '@repo/common/components';
-import { useApiKeysStore, useChatStore } from '@repo/common/store';
-import { CHAT_MODE_CREDIT_COSTS, ChatMode, ChatModeConfig } from '@repo/shared/config';
+import { useChatStore } from '@repo/common/store';
+import {
+    CHAT_MODE_CREDIT_COSTS,
+    ChatMode,
+    ChatModeConfig,
+    effortLabel,
+    GatewayModelFamily,
+    groupGatewayModels,
+} from '@repo/shared/config';
 import {
     Button,
     cn,
@@ -13,6 +19,10 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
     Kbd,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+    Slider,
 } from '@repo/ui';
 import {
     IconArrowUp,
@@ -24,9 +34,9 @@ import {
     IconWorld,
 } from '@tabler/icons-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { BYOKIcon, NewIcon } from '../icons';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { NewIcon } from '../icons';
 
 export const chatOptions = [
     {
@@ -45,83 +55,40 @@ export const chatOptions = [
     },
 ];
 
-export const modelOptions = [
-    {
-        label: 'Llama 4 Scout',
-        value: ChatMode.LLAMA_4_SCOUT,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.LLAMA_4_SCOUT],
-    },
-    {
-        label: 'GPT 4.1',
-        value: ChatMode.GPT_4_1,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.GPT_4_1],
-    },
-    {
-        label: 'GPT 4.1 Mini',
-        value: ChatMode.GPT_4_1_Mini,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.GPT_4_1_Mini],
-    },
-    {
-        label: 'GPT 4.1 Nano',
-        value: ChatMode.GPT_4_1_Nano,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.GPT_4_1_Nano],
-    },
-    {
-        label: 'Gemini Flash 2.0',
-        value: ChatMode.GEMINI_2_FLASH,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.GEMINI_2_FLASH],
-    },
+const fallbackGatewayFamilies = groupGatewayModels([
+    'gemini-2.5-flash-lite',
+    'claude-sonnet-4-6',
+    'claude-opus-4-6-thinking',
+    'gpt-oss-120b-medium',
+]);
 
-    {
-        label: 'GPT 4o Mini',
-        value: ChatMode.GPT_4o_Mini,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.GPT_4o_Mini],
-    },
+const useGatewayModelFamilies = () => {
+    const [families, setFamilies] = useState<GatewayModelFamily[]>(fallbackGatewayFamilies);
 
-    {
-        label: 'O4 Mini',
-        value: ChatMode.O4_Mini,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.O4_Mini],
-    },
+    useEffect(() => {
+        let cancelled = false;
+        fetch('/api/models', { cache: 'no-store' })
+            .then(response => (response.ok ? response.json() : null))
+            .then(data => {
+                if (!cancelled && data?.families?.length) setFamilies(data.families);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
-    {
-        label: 'Claude 3.5 Sonnet',
-        value: ChatMode.CLAUDE_3_5_SONNET,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.CLAUDE_3_5_SONNET],
-    },
+    return families;
+};
 
-    {
-        label: 'Deepseek R1',
-        value: ChatMode.DEEPSEEK_R1,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.DEEPSEEK_R1],
-    },
+const defaultVariant = (family: GatewayModelFamily) =>
+    family.variants.find(variant => variant.effort === 'medium') || family.variants[0];
 
-    {
-        label: 'Claude 3.7 Sonnet',
-        value: ChatMode.CLAUDE_3_7_SONNET,
-        // webSearch: true,
-        icon: undefined,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.CLAUDE_3_7_SONNET],
-    },
-];
+const selectedFamilyForMode = (families: GatewayModelFamily[], mode: ChatMode) =>
+    families.find(family => family.variants.some(variant => variant.id === mode));
+
+const effortIndexForMode = (family: GatewayModelFamily, mode: ChatMode) =>
+    Math.max(0, family.variants.findIndex(variant => variant.id === mode));
 
 export const AttachmentButton = () => {
     return (
@@ -138,29 +105,139 @@ export const AttachmentButton = () => {
     );
 };
 
+const EffortControl = ({
+    family,
+    chatMode,
+    setChatMode,
+}: {
+    family: GatewayModelFamily;
+    chatMode: ChatMode;
+    setChatMode: (chatMode: ChatMode) => void;
+}) => {
+    if (family.variants.length < 2) return null;
+
+    const selectedIndex = effortIndexForMode(family, chatMode);
+    const selectedVariant = family.variants[selectedIndex];
+
+    return (
+        <div className="border-border/70 mt-3 border-t pt-3">
+            <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">Thinking effort</span>
+                <span className="text-muted-foreground">
+                    {effortLabel(selectedVariant?.effort) || 'Default'}
+                </span>
+            </div>
+            <Slider
+                aria-label="Thinking effort"
+                min={0}
+                max={family.variants.length - 1}
+                step={1}
+                value={[selectedIndex]}
+                onValueChange={value => {
+                    const variant = family.variants[value[0] ?? selectedIndex];
+                    if (variant) setChatMode(variant.id as ChatMode);
+                }}
+                className="mt-2 h-6"
+            />
+            <div className="text-muted-foreground flex justify-between text-[10px]">
+                {family.variants.map(variant => (
+                    <span key={variant.id}>{effortLabel(variant.effort) || 'Default'}</span>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ModelFamilyList = ({
+    families,
+    chatMode,
+    setChatMode,
+}: {
+    families: GatewayModelFamily[];
+    chatMode: ChatMode;
+    setChatMode: (chatMode: ChatMode) => void;
+}) => (
+    <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto pr-1">
+        {families.map(family => {
+            const selected = family.variants.some(variant => variant.id === chatMode);
+            const selectedVariant = family.variants.find(variant => variant.id === chatMode);
+            return (
+                <button
+                    type="button"
+                    key={family.id}
+                    onClick={() => setChatMode((selectedVariant || defaultVariant(family)).id as ChatMode)}
+                    className={cn(
+                        'hover:bg-muted flex min-h-9 w-full items-center justify-between rounded-lg px-2 text-left text-sm transition-colors',
+                        selected && 'bg-muted font-medium'
+                    )}
+                >
+                    <span>{family.label}</span>
+                    {family.isImage && <span className="text-muted-foreground text-[10px]">Image</span>}
+                </button>
+            );
+        })}
+    </div>
+);
+
 export const ChatModeButton = () => {
     const chatMode = useChatStore(state => state.chatMode);
     const setChatMode = useChatStore(state => state.setChatMode);
     const [isChatModeOpen, setIsChatModeOpen] = useState(false);
-    const hasApiKeyForChatMode = useApiKeysStore(state => state.hasApiKeyForChatMode);
     const isChatPage = usePathname().startsWith('/chat');
-
-    const selectedOption =
-        (isChatPage
-            ? [...chatOptions, ...modelOptions].find(option => option.value === chatMode)
-            : [...modelOptions].find(option => option.value === chatMode)) ?? modelOptions[0];
+    const families = useGatewayModelFamilies();
+    const selectedFamily = selectedFamilyForMode(families, chatMode);
+    const selectedLabel = selectedFamily?.label || 'Default';
 
     return (
-        <DropdownMenu open={isChatModeOpen} onOpenChange={setIsChatModeOpen}>
-            <DropdownMenuTrigger asChild>
-                <Button variant={'secondary'} size="xs">
-                    {selectedOption?.icon}
-                    {selectedOption?.label}
+        <Popover open={isChatModeOpen} onOpenChange={setIsChatModeOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="secondary" size="xs">
+                    {selectedLabel}
                     <IconChevronDown size={14} strokeWidth={2} />
                 </Button>
-            </DropdownMenuTrigger>
-            <ChatModeOptions chatMode={chatMode} setChatMode={setChatMode} />
-        </DropdownMenu>
+            </PopoverTrigger>
+            <PopoverContent align="start" side="bottom" className="w-[320px] p-3">
+                {isChatPage && (
+                    <div className="mb-3 border-b pb-3">
+                        <p className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wide">
+                            Modes
+                        </p>
+                        <div className="flex gap-1">
+                            {chatOptions.map(option => (
+                                <Button
+                                    key={option.value}
+                                    size="sm"
+                                    variant={chatMode === option.value ? 'secondary' : 'ghost'}
+                                    onClick={() => setChatMode(option.value)}
+                                >
+                                    {option.label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                <p className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wide">
+                    Models
+                </p>
+                <ModelFamilyList
+                    families={families}
+                    chatMode={chatMode}
+                    setChatMode={setChatMode}
+                />
+                {selectedFamily && !selectedFamily.isImage && (
+                    <EffortControl
+                        family={selectedFamily}
+                        chatMode={chatMode}
+                        setChatMode={setChatMode}
+                    />
+                )}
+                {selectedFamily?.isImage && (
+                    <p className="text-muted-foreground border-border/70 mt-3 border-t pt-3 text-xs">
+                        Image generation uses 10 Pro credits per image.
+                    </p>
+                )}
+            </PopoverContent>
+        </Popover>
     );
 };
 
@@ -168,9 +245,8 @@ export const WebSearchButton = () => {
     const useWebSearch = useChatStore(state => state.useWebSearch);
     const setUseWebSearch = useChatStore(state => state.setUseWebSearch);
     const chatMode = useChatStore(state => state.chatMode);
-    const hasApiKeyForChatMode = useApiKeysStore(state => state.hasApiKeyForChatMode);
 
-    if (!ChatModeConfig[chatMode]?.webSearch && !hasApiKeyForChatMode(chatMode)) return null;
+    if (!ChatModeConfig[chatMode]?.webSearch) return null;
 
     return (
         <Button
@@ -220,10 +296,14 @@ export const ChatModeOptions = ({
     setChatMode: (chatMode: ChatMode) => void;
     isRetry?: boolean;
 }) => {
-    const { isSignedIn } = useUser();
-    const hasApiKeyForChatMode = useApiKeysStore(state => state.hasApiKeyForChatMode);
     const isChatPage = usePathname().startsWith('/chat');
-    const { push } = useRouter();
+    const creditLimit = useChatStore(state => state.creditLimit);
+    const families = useGatewayModelFamilies();
+    const canShow = (mode: ChatMode) =>
+        !creditLimit.isFetched ||
+        creditLimit.allowedModes.length === 0 ||
+        creditLimit.allowedModes.includes(mode);
+    const visibleAdvancedOptions = chatOptions.filter(option => canShow(option.value));
     return (
         <DropdownMenuContent
             align="start"
@@ -233,14 +313,10 @@ export const ChatModeOptions = ({
             {isChatPage && (
                 <DropdownMenuGroup>
                     <DropdownMenuLabel>Advanced Mode</DropdownMenuLabel>
-                    {chatOptions.map(option => (
+                    {visibleAdvancedOptions.map(option => (
                         <DropdownMenuItem
                             key={option.label}
                             onSelect={() => {
-                                if (ChatModeConfig[option.value]?.isAuthRequired && !isSignedIn) {
-                                    push('/sign-in');
-                                    return;
-                                }
                                 setChatMode(option.value);
                             }}
                             className="h-auto"
@@ -265,29 +341,26 @@ export const ChatModeOptions = ({
             )}
             <DropdownMenuGroup>
                 <DropdownMenuLabel>Models</DropdownMenuLabel>
-                {modelOptions.map(option => (
-                    <DropdownMenuItem
-                        key={option.label}
-                        onSelect={() => {
-                            if (ChatModeConfig[option.value]?.isAuthRequired && !isSignedIn) {
-                                push('/sign-in');
-                                return;
-                            }
-                            setChatMode(option.value);
-                        }}
-                        className="h-auto"
-                    >
-                        <div className="flex w-full flex-row items-center gap-2.5 px-1.5 py-1.5">
-                            <div className="flex flex-col gap-0">
-                                {<p className="text-sm font-medium">{option.label}</p>}
+                {families.map(family => {
+                    const selectedVariant = family.variants.find(variant => variant.id === chatMode);
+                    return (
+                        <DropdownMenuItem
+                            key={family.id}
+                            onSelect={() => {
+                                setChatMode((selectedVariant || defaultVariant(family)).id as ChatMode);
+                            }}
+                            className="h-auto"
+                        >
+                            <div className="flex w-full flex-row items-center gap-2.5 px-1.5 py-1.5">
+                                <p className="text-sm font-medium">{family.label}</p>
+                                <div className="flex-1" />
+                                {family.isImage && (
+                                    <span className="text-muted-foreground text-[10px]">Image</span>
+                                )}
                             </div>
-                            <div className="flex-1" />
-                            {ChatModeConfig[option.value]?.isNew && <NewIcon />}
-
-                            {hasApiKeyForChatMode(option.value) && <BYOKIcon />}
-                        </div>
-                    </DropdownMenuItem>
-                ))}
+                        </DropdownMenuItem>
+                    );
+                })}
             </DropdownMenuGroup>
         </DropdownMenuContent>
     );

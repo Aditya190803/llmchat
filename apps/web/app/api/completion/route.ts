@@ -1,16 +1,21 @@
-import { auth } from '@clerk/nextjs/server';
-import { CHAT_MODE_CREDIT_COSTS, ChatModeConfig } from '@repo/shared/config';
+import { getSessionUser } from '@/lib/auth';
+import {
+    canUseMode,
+    getQuota,
+    getVisitorQuota,
+    spendCredits,
+    spendVisitorCredits,
+} from '@/lib/tiers';
+import {
+    CHAT_MODE_CREDIT_COSTS,
+    ChatMode,
+    IMAGE_GENERATION_CREDIT_COST,
+    isImageGenerationModel,
+} from '@repo/shared/config';
 import { Geo, geolocation } from '@vercel/functions';
 import { NextRequest } from 'next/server';
-import {
-    DAILY_CREDITS_AUTH,
-    DAILY_CREDITS_IP,
-    deductCredits,
-    getRemainingCredits,
-} from './credit-service';
 import { executeStream, sendMessage } from './stream-handlers';
 import { completionRequestSchema, SSE_HEADERS } from './types';
-import { getIp } from './utils';
 
 export async function POST(request: NextRequest) {
     if (request.method === 'OPTIONS') {
@@ -18,8 +23,12 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const session = await auth();
-        const userId = session?.userId ?? undefined;
+        const session = await getSessionUser();
+        const userId = session?.id;
+        const visitorIp =
+            request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+            request.headers.get('x-real-ip') ||
+            'local';
 
         const parsed = await request.json().catch(() => ({}));
         const validatedBody = completionRequestSchema.safeParse(parsed);
@@ -35,46 +44,37 @@ export async function POST(request: NextRequest) {
         }
 
         const { data } = validatedBody;
-        const creditCost = CHAT_MODE_CREDIT_COSTS[data.mode];
-        const ip = getIp(request);
+        const creditCost = isImageGenerationModel(data.mode)
+            ? IMAGE_GENERATION_CREDIT_COST
+            : (CHAT_MODE_CREDIT_COSTS[data.mode as ChatMode] ?? 1);
 
-        if (!ip) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
-
-        console.log('ip', ip);
-
-        const remainingCredits = await getRemainingCredits({
-            userId: userId ?? undefined,
-            ip,
-        });
-
-        console.log('remainingCredits', remainingCredits, creditCost, process.env.NODE_ENV);
-
-        if (!!ChatModeConfig[data.mode]?.isAuthRequired && !userId) {
-            return new Response(JSON.stringify({ error: 'Authentication required' }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
-
-        if (remainingCredits < creditCost && process.env.NODE_ENV !== 'development') {
+        if (!(await canUseMode(session, data.mode))) {
             return new Response(
-                'You have reached the daily limit of requests. Please try again tomorrow or Use your own API key.',
+                JSON.stringify({ error: 'This model is not available on your plan' }),
+                { status: 403, headers: { 'Content-Type': 'application/json' } }
+            );
+        }
+
+        const quota = userId ? await getQuota(userId) : await getVisitorQuota(visitorIp);
+        if (!quota) {
+            return new Response(JSON.stringify({ error: 'Account not found' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }
+
+        if (quota.remaining < creditCost) {
+            return new Response(
+                'You have reached the daily limit of requests. Please try again tomorrow.',
                 { status: 429, headers: { 'Content-Type': 'application/json' } }
             );
         }
 
         const enhancedHeaders = {
             ...SSE_HEADERS,
-            'X-Credits-Available': remainingCredits.toString(),
+            'X-Credits-Available': quota.remaining.toString(),
             'X-Credits-Cost': creditCost.toString(),
-            'X-Credits-Daily-Allowance': userId
-                ? DAILY_CREDITS_AUTH.toString()
-                : DAILY_CREDITS_IP.toString(),
+            'X-Credits-Daily-Allowance': quota.limit.toString(),
         };
 
         const encoder = new TextEncoder();
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         const stream = createCompletionStream({
             data,
             userId,
-            ip,
+            visitorIp,
             abortController,
             gl,
         });
@@ -109,13 +109,13 @@ export async function POST(request: NextRequest) {
 function createCompletionStream({
     data,
     userId,
-    ip,
+    visitorIp,
     abortController,
     gl,
 }: {
     data: any;
     userId?: string;
-    ip?: string;
+    visitorIp: string;
     abortController: AbortController;
     gl: Geo;
 }) {
@@ -133,7 +133,7 @@ function createCompletionStream({
                 await executeStream({
                     controller,
                     encoder,
-                    data,
+                    data: { ...data, mode: data.mode as ChatMode },
                     abortController,
                     gl,
                     userId: userId ?? undefined,
@@ -141,17 +141,14 @@ function createCompletionStream({
                         // if (process.env.NODE_ENV === 'development') {
                         //     return;
                         // }
-                        const creditCost =
-                            CHAT_MODE_CREDIT_COSTS[
-                                data.mode as keyof typeof CHAT_MODE_CREDIT_COSTS
-                            ];
-                        await deductCredits(
-                            {
-                                userId: userId ?? undefined,
-                                ip: ip ?? undefined,
-                            },
-                            creditCost
-                        );
+                        const creditCost = isImageGenerationModel(data.mode)
+                            ? IMAGE_GENERATION_CREDIT_COST
+                            : (CHAT_MODE_CREDIT_COSTS[data.mode as ChatMode] ?? 1);
+                        if (userId) {
+                            await spendCredits(userId, creditCost);
+                        } else {
+                            await spendVisitorCredits(visitorIp, creditCost);
+                        }
                     },
                 });
             } catch (error) {

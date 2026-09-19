@@ -1,7 +1,14 @@
 import { createTask } from '@repo/orchestrator';
+import { isImageGenerationModel } from '@repo/shared/config';
 import { getModelFromChatMode } from '../../models';
 import { WorkflowContextSchema, WorkflowEventSchema } from '../flow';
-import { ChunkBuffer, generateText, getHumanizedDate, handleError } from '../utils';
+import {
+    ChunkBuffer,
+    generateGatewayImage,
+    generateText,
+    getHumanizedDate,
+    handleError,
+} from '../utils';
 
 const MAX_ALLOWED_CUSTOM_INSTRUCTIONS_LENGTH = 6000;
 
@@ -46,6 +53,22 @@ export const completionTask = createTask<WorkflowEventSchema, WorkflowContextSch
         }
 
         const model = getModelFromChatMode(mode);
+
+        if (isImageGenerationModel(model)) {
+            const imageResult = await generateGatewayImage({
+                model,
+                prompt: context.get('question') || '',
+                messages,
+                signal,
+            });
+            events?.update('answer', current => ({
+                ...current,
+                text: imageResult.text || 'Generated image.',
+                images: imageResult.images,
+                status: 'COMPLETED',
+            }));
+            return;
+        }
 
         let prompt = `You are a helpful assistant that can answer questions and help with tasks.
         Today is ${getHumanizedDate()}.

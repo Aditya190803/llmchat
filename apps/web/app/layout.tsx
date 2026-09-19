@@ -1,4 +1,3 @@
-import { ClerkProvider } from '@clerk/nextjs';
 import { RootLayout } from '@repo/common/components';
 import { ReactQueryProvider, RootProvider } from '@repo/common/context';
 import { TooltipProvider, cn } from '@repo/ui';
@@ -103,8 +102,7 @@ export default function ParentLayout({
             </head>
             <body>
                 {/* <PostHogProvider> */}
-                <ClerkProvider>
-                    <RootProvider>
+                <RootProvider>
                         {/* <ThemeProvider
             attribute="class"
             defaultTheme="light"
@@ -118,7 +116,6 @@ export default function ParentLayout({
                         </TooltipProvider>
                         {/* </ThemeProvider> */}
                     </RootProvider>
-                </ClerkProvider>
                 {/* </PostHogProvider> */}
             </body>
         </html>

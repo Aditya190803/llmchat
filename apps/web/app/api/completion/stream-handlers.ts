@@ -1,5 +1,5 @@
 import { runWorkflow } from '@repo/ai/workflow';
-import { CHAT_MODE_CREDIT_COSTS } from '@repo/shared/config';
+import { CHAT_MODE_CREDIT_COSTS, ChatMode } from '@repo/shared/config';
 import { logger } from '@repo/shared/logger';
 import { EVENT_TYPES, posthog } from '@repo/shared/posthog';
 import { Geo } from '@vercel/functions';
@@ -63,12 +63,12 @@ export async function executeStream({
     onFinish?: () => Promise<void>;
 }): Promise<{ success: boolean } | Response> {
     try {
-        const creditCost = CHAT_MODE_CREDIT_COSTS[data.mode];
+        const creditCost = CHAT_MODE_CREDIT_COSTS[data.mode as ChatMode] ?? 1;
 
         const { signal } = abortController;
 
         const workflow = runWorkflow({
-            mode: data.mode,
+            mode: data.mode as ChatMode,
             question: data.prompt,
             threadId: data.threadId,
             threadItemId: data.threadItemId,
@@ -93,6 +93,7 @@ export async function executeStream({
                 parentThreadItemId: data.parentThreadItemId,
                 query: data.prompt,
                 mode: data.mode,
+                model: data.mode,
                 webSearch: data.webSearch || false,
                 showSuggestions: data.showSuggestions || false,
                 [event]: payload,

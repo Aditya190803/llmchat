@@ -38,9 +38,16 @@ export type Source = {
     snippet?: string;
 };
 
+export type GeneratedImage = {
+    data: string;
+    mimeType: string;
+    alt?: string;
+};
+
 export type Answer = {
     text: string;
     finalText?: string;
+    images?: GeneratedImage[];
     status?: ItemStatus;
 };
 
@@ -73,6 +80,8 @@ export type ThreadItem = {
     threadId: string;
     metadata?: Record<string, any>;
     mode: ChatMode;
+    /** Exact model ID selected in Composer, including live gateway IDs. */
+    model?: string;
     error?: string;
     suggestions?: string[];
     persistToDB?: boolean;

@@ -111,11 +111,11 @@ export const CommandSearch = () => {
             },
         },
         {
-            name: 'Use your own API key',
+            name: 'Usage & credits',
             icon: IconKey,
             action: () => {
                 setIsSettingsOpen(true);
-                setSettingTab('api-keys');
+                setSettingTab('credits');
                 onClose();
             },
         },

@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
 export const SETTING_TABS = {
-    API_KEYS: 'api-keys',
     MCP_TOOLS: 'mcp-tools',
     CREDITS: 'credits',
     PERSONALIZATION: 'personalization',
@@ -43,7 +42,7 @@ export const useAppStore = create(
         isSidebarOpen: true,
         isSourcesOpen: false,
         isSettingsOpen: false,
-        settingTab: 'api-keys',
+        settingTab: 'credits',
         showSignInModal: false,
         setIsSidebarOpen: (prev: (prev: boolean) => boolean) =>
             set({ isSidebarOpen: prev(get().isSidebarOpen) }),

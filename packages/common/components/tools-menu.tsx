@@ -14,23 +14,15 @@ import {
 
 import { IconCheck, IconTools } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
-import { useApiKeysStore } from '../store/api-keys.store';
 import { SETTING_TABS, useAppStore } from '../store/app.store';
-import { useChatStore } from '../store/chat.store';
 import { ToolIcon } from './icons';
 
 export const ToolsMenu = () => {
     const [isOpen, setIsOpen] = useState(false);
     const { mcpConfig, updateSelectedMCP, selectedMCP } = useMcpToolsStore();
-    const apiKeys = useApiKeysStore();
-    const chatMode = useChatStore(state => state.chatMode);
-    const hasApiKeyForChatMode = useApiKeysStore(state => state.hasApiKeyForChatMode);
     const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
     const setSettingTab = useAppStore(state => state.setSettingTab);
-    const isToolsAvailable = useMemo(
-        () => hasApiKeyForChatMode(chatMode),
-        [chatMode, hasApiKeyForChatMode, apiKeys]
-    );
+    const isToolsAvailable = true;
 
     const selectedMCPTools = useMemo(() => {
         return Object.keys(mcpConfig).filter(key => mcpConfig[key]);
@@ -42,7 +34,7 @@ export const ToolsMenu = () => {
                 <DropdownMenuTrigger asChild>
                     <Button
                         size={selectedMCP.length > 0 ? 'sm' : 'icon'}
-                        tooltip={isToolsAvailable ? 'Tools' : 'Only available with BYOK'}
+                        tooltip="Tools"
                         variant={isOpen ? 'secondary' : 'ghost'}
                         className="gap-2"
                         rounded="full"

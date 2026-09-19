@@ -5,7 +5,6 @@ const nextConfig = {
     images: {
         remotePatterns: [
             { hostname: 'www.google.com' },
-            { hostname: 'img.clerk.com' },
             { hostname: 'zyqdiwxgffuy8ymd.public.blob.vercel-storage.com' },
         ],
     },
@@ -13,6 +12,7 @@ const nextConfig = {
     experimental: {
         externalDir: true,
     },
+    turbopack: {},
     webpack: (config, options) => {
         if (!options.isServer) {
             config.resolve.fallback = { fs: false, module: false, path: false };

@@ -2,7 +2,11 @@
 import { ChatModeOptions } from '@repo/common/components';
 import { useAgentStream, useCopyText } from '@repo/common/hooks';
 import { useChatStore } from '@repo/common/store';
-import { ChatMode, getChatModeName } from '@repo/shared/config';
+import {
+    ChatMode,
+    getChatModeName,
+    getGatewayModelDisplayName,
+} from '@repo/shared/config';
 import { ThreadItem } from '@repo/shared/types';
 import { Button, DropdownMenu, DropdownMenuTrigger } from '@repo/ui';
 import { IconCheck, IconCopy, IconMarkdown, IconRefresh, IconTrash } from '@tabler/icons-react';
@@ -20,6 +24,11 @@ export const MessageActions = forwardRef<HTMLDivElement, MessageActionsProps>(
         const useWebSearch = useChatStore(state => state.useWebSearch);
         const [chatMode, setChatMode] = useState<ChatMode>(threadItem.mode);
         const { copyToClipboard, status, copyMarkdown, markdownCopyStatus } = useCopyText();
+        const generatedModel = threadItem.model
+            ? Object.values(ChatMode).includes(threadItem.model as ChatMode)
+                ? getChatModeName(threadItem.model as ChatMode)
+                : getGatewayModelDisplayName(threadItem.model)
+            : getChatModeName(threadItem.mode);
         return (
             <div className="flex flex-row items-center gap-1 py-2">
                 {threadItem?.answer?.text && (
@@ -101,7 +110,7 @@ export const MessageActions = forwardRef<HTMLDivElement, MessageActionsProps>(
                 )}
                 {threadItem.mode && (
                     <p className="text-muted-foreground px-2 text-xs">
-                        Generated with {getChatModeName(threadItem.mode)}
+                        Generated with {generatedModel}
                     </p>
                 )}
             </div>

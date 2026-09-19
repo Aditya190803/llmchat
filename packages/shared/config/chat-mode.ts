@@ -117,31 +117,33 @@ export const CHAT_MODE_CREDIT_COSTS = {
     [ChatMode.DEEPSEEK_R1]: 5,
 };
 
-export const getChatModeName = (mode: ChatMode) => {
+export const getChatModeName = (mode: ChatMode | string) => {
     switch (mode) {
         case ChatMode.Deep:
             return 'Deep Research';
         case ChatMode.Pro:
             return 'Pro Search';
         case ChatMode.GPT_4_1:
-            return 'GPT 4.1';
+            return 'Claude Sonnet 4.6';
         case ChatMode.GPT_4_1_Mini:
-            return 'GPT 4.1 Mini';
+            return 'Gemini 2.5 Flash Lite';
         case ChatMode.GPT_4_1_Nano:
-            return 'GPT 4.1 Nano';
+            return 'Gemini 2.5 Flash Lite';
         case ChatMode.LLAMA_4_SCOUT:
-            return 'Llama 4 Scout';
+            return 'GPT OSS 120B';
         case ChatMode.GPT_4o_Mini:
-            return 'GPT 4o Mini';
+            return 'Gemini 2.5 Flash Lite';
         case ChatMode.CLAUDE_3_5_SONNET:
-            return 'Claude 3.5 Sonnet';
+            return 'Claude Sonnet 4.6';
         case ChatMode.CLAUDE_3_7_SONNET:
-            return 'Claude 3.7 Sonnet';
+            return 'Claude Sonnet 4.6';
         case ChatMode.O4_Mini:
-            return 'O4 Mini';
+            return 'GPT OSS 120B';
         case ChatMode.DEEPSEEK_R1:
-            return 'DeepSeek R1';
+            return 'Claude Opus 4.6 Thinking';
         case ChatMode.GEMINI_2_FLASH:
-            return 'Gemini 2 Flash';
+            return 'Gemini 2.5 Flash Lite';
+        default:
+            return String(mode);
     }
 };

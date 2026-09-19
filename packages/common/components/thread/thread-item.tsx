@@ -56,13 +56,17 @@ export const ThreadItem = memo(
         }, [threadItem]);
 
         const hasAnswer = useMemo(() => {
-            return threadItem.answer?.text && threadItem.answer?.text.length > 0;
+            return (
+                (threadItem.answer?.text && threadItem.answer.text.length > 0) ||
+                (threadItem.answer?.images && threadItem.answer.images.length > 0)
+            );
         }, [threadItem.answer]);
 
         const hasResponse = useMemo(() => {
             return (
                 !!threadItem?.steps ||
                 !!threadItem?.answer?.text ||
+                !!threadItem?.answer?.images?.length ||
                 !!threadItem?.object ||
                 !!threadItem?.error ||
                 threadItem?.status === 'COMPLETED' ||
@@ -108,19 +112,35 @@ export const ThreadItem = memo(
                                 <div className="flex flex-col">
                                     <SourceGrid sources={threadItem.sources || []} />
 
-                                    <MarkdownContent
-                                        content={animatedText || ''}
-                                        key={`answer-${threadItem.id}`}
-                                        isCompleted={['COMPLETED', 'ERROR', 'ABORTED'].includes(
-                                            threadItem.status || ''
-                                        )}
-                                        shouldAnimate={
-                                            !['COMPLETED', 'ERROR', 'ABORTED'].includes(
+                                    {threadItem.answer?.images?.length ? (
+                                        <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+                                            {threadItem.answer.images.map((image, index) => (
+                                                <figure key={`${threadItem.id}-image-${index}`}>
+                                                    <img
+                                                        src={image.data}
+                                                        alt={image.alt || 'Generated image'}
+                                                        loading="lazy"
+                                                        className="h-auto w-full rounded-xl border object-contain shadow-sm"
+                                                    />
+                                                </figure>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                    {threadItem.answer?.text && (
+                                        <MarkdownContent
+                                            content={animatedText || ''}
+                                            key={`answer-${threadItem.id}`}
+                                            isCompleted={['COMPLETED', 'ERROR', 'ABORTED'].includes(
                                                 threadItem.status || ''
-                                            )
-                                        }
-                                        isLast={isLast}
-                                    />
+                                            )}
+                                            shouldAnimate={
+                                                !['COMPLETED', 'ERROR', 'ABORTED'].includes(
+                                                    threadItem.status || ''
+                                                )
+                                            }
+                                            isLast={isLast}
+                                        />
+                                    )}
                                 </div>
                             )}
                         </div>

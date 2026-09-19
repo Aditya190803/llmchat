@@ -2,20 +2,16 @@ import { ChatMode } from '@repo/shared/config';
 import { CoreMessage } from 'ai';
 import { ProviderEnumType } from './providers';
 
+// All models route through the AI Gateway (OpenAI-compatible).
+// Wire IDs below must exist on the gateway for the configured key.
+// Verified reachable 2026-09-10 via /v1/models.
 export enum ModelEnum {
-    GPT_4o_Mini = 'gpt-4o-mini',
-    GPT_4o = 'gpt-4o',
-    GPT_4_1_Mini = 'gpt-4.1-mini',
-    GPT_4_1_Nano = 'gpt-4.1-nano',
-    GPT_4_1 = 'gpt-4.1',
-    LLAMA_4_SCOUT = 'accounts/fireworks/models/llama4-scout-instruct-basic',
-    Deepseek_R1_Distill_Qwen_14B = 'deepseek-r1-distill-qwen-14b',
-    Claude_3_5_Sonnet = 'claude-3-5-sonnet-20240620',
-    O4_Mini = 'o4-mini',
-    GEMINI_2_FLASH = 'gemini-2.0-flash',
-    QWQ_32B = 'accounts/fireworks/models/qwq-32b',
-    Deepseek_R1 = 'accounts/fireworks/models/deepseek-r1',
-    Claude_3_7_Sonnet = 'claude-3-7-sonnet-20250219',
+    GATEWAY_FLASH = 'gemini-2.5-flash-lite',
+    GATEWAY_FLASH_LITE = 'gemini-2.5-flash-lite',
+    GATEWAY_PRO = 'claude-sonnet-4-6',
+    GATEWAY_SONNET = 'claude-sonnet-4-6',
+    GATEWAY_OPUS_THINKING = 'claude-opus-4-6-thinking',
+    GATEWAY_OSS = 'gpt-oss-120b-medium',
 }
 
 export type Model = {
@@ -28,128 +24,77 @@ export type Model = {
 
 export const models: Model[] = [
     {
-        id: ModelEnum.GPT_4o_Mini,
-        name: 'GPT-4o Mini',
-        provider: 'openai',
+        id: ModelEnum.GATEWAY_FLASH,
+        name: 'Gemini 2.5 Flash Lite',
+        provider: 'gateway',
         maxTokens: 16384,
         contextWindow: 16384,
     },
     {
-        id: ModelEnum.GPT_4_1_Mini,
-        name: 'GPT-4.1 Mini',
-        provider: 'openai',
+        id: ModelEnum.GATEWAY_FLASH_LITE,
+        name: 'Gemini 2.5 Flash Lite',
+        provider: 'gateway',
         maxTokens: 16384,
         contextWindow: 16384,
     },
     {
-        id: ModelEnum.GPT_4_1_Nano,
-        name: 'GPT-4.1 Nano',
-        provider: 'openai',
+        id: ModelEnum.GATEWAY_PRO,
+        name: 'Claude Sonnet 4.6',
+        provider: 'gateway',
         maxTokens: 16384,
         contextWindow: 16384,
     },
     {
-        id: ModelEnum.GPT_4_1,
-        name: 'GPT-4.1',
-        provider: 'openai',
+        id: ModelEnum.GATEWAY_SONNET,
+        name: 'Claude Sonnet 4.6',
+        provider: 'gateway',
         maxTokens: 16384,
         contextWindow: 16384,
     },
     {
-        id: ModelEnum.GPT_4o,
-        name: 'GPT-4o',
-        provider: 'openai',
+        id: ModelEnum.GATEWAY_OPUS_THINKING,
+        name: 'Claude Opus 4.6 Thinking',
+        provider: 'gateway',
         maxTokens: 16384,
         contextWindow: 16384,
     },
     {
-        id: ModelEnum.O4_Mini,
-        name: 'O4 Mini',
-        provider: 'openai',
-        maxTokens: 16384,
-        contextWindow: 16384,
-    },
-    {
-        id: ModelEnum.GPT_4o_Mini,
-        name: 'GPT-4o Mini',
-        provider: 'openai',
-        maxTokens: 16384,
-        contextWindow: 16384,
-    },
-    {
-        id: ModelEnum.Deepseek_R1_Distill_Qwen_14B,
-        name: 'DeepSeek R1 Distill Qwen 14B',
-        provider: 'together',
-        maxTokens: 16384,
-        contextWindow: 16384,
-    },
-    {
-        id: ModelEnum.Deepseek_R1,
-        name: 'DeepSeek R1',
-        provider: 'fireworks',
-        maxTokens: 16384,
-        contextWindow: 16384,
-    },
-    {
-        id: ModelEnum.Claude_3_5_Sonnet,
-        name: 'Claude 3.5 Sonnet',
-        provider: 'anthropic',
-        maxTokens: 16384,
-        contextWindow: 16384,
-    },
-    {
-        id: ModelEnum.Claude_3_7_Sonnet,
-        name: 'Claude 3.7 Sonnet',
-        provider: 'anthropic',
-        maxTokens: 16384,
-        contextWindow: 16384,
-    },
-    {
-        id: ModelEnum.GEMINI_2_FLASH,
-        name: 'Gemini 2 Flash',
-        provider: 'google',
-        maxTokens: 200000,
-        contextWindow: 200000,
-    },
-    {
-        id: ModelEnum.QWQ_32B,
-        name: 'QWQ 32B',
-        provider: 'fireworks',
-        maxTokens: 16384,
-        contextWindow: 16384,
-    },
-    {
-        id: ModelEnum.LLAMA_4_SCOUT,
-        name: 'Llama 4 Scout',
-        provider: 'fireworks',
+        id: ModelEnum.GATEWAY_OSS,
+        name: 'GPT OSS 120B',
+        provider: 'gateway',
         maxTokens: 16384,
         contextWindow: 16384,
     },
 ];
 
-export const getModelFromChatMode = (mode?: string): ModelEnum => {
+export const getModelFromChatMode = (mode?: string): string => {
     switch (mode) {
         case ChatMode.GEMINI_2_FLASH:
-            return ModelEnum.GEMINI_2_FLASH;
+            return ModelEnum.GATEWAY_FLASH;
         case ChatMode.DEEPSEEK_R1:
-            return ModelEnum.Deepseek_R1;
+            return ModelEnum.GATEWAY_OPUS_THINKING;
         case ChatMode.CLAUDE_3_5_SONNET:
-            return ModelEnum.Claude_3_5_Sonnet;
         case ChatMode.CLAUDE_3_7_SONNET:
-            return ModelEnum.Claude_3_7_Sonnet;
+            return ModelEnum.GATEWAY_SONNET;
         case ChatMode.GPT_4o_Mini:
-            return ModelEnum.GPT_4o_Mini;
+            return ModelEnum.GATEWAY_FLASH;
         case ChatMode.GPT_4_1:
-            return ModelEnum.GPT_4_1;
+            return ModelEnum.GATEWAY_PRO;
         case ChatMode.GPT_4_1_Mini:
-            return ModelEnum.GPT_4_1_Mini;
+            return ModelEnum.GATEWAY_FLASH;
         case ChatMode.GPT_4_1_Nano:
-            return ModelEnum.GPT_4_1_Nano;
+            return ModelEnum.GATEWAY_FLASH_LITE;
         case ChatMode.O4_Mini:
-            return ModelEnum.O4_Mini;
-        case ChatMode.GPT_4_1_Mini:
+            return ModelEnum.GATEWAY_OSS;
+        case ChatMode.LLAMA_4_SCOUT:
+            return ModelEnum.GATEWAY_OSS;
+        case ChatMode.Deep:
+            return ModelEnum.GATEWAY_OPUS_THINKING;
+        case ChatMode.Pro:
+            return ModelEnum.GATEWAY_SONNET;
         default:
-            return ModelEnum.GPT_4o_Mini;
+            // Dynamic gateway model IDs are accepted directly from Composer.
+            return mode || ModelEnum.GATEWAY_FLASH;
     }
 };
 

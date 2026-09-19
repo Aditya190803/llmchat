@@ -30,7 +30,7 @@ A flexible and powerful system for building AI agent workflows using a graph-bas
      ```bash
      cp .env.example .env.local
      ```
-   - Fill in your API keys and preferences in `.env.local`
+   - Configure the server gateway and preferences in `.env.local`
 
 3. Run the customer support example:
    ```bash

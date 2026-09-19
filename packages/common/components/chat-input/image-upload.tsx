@@ -1,5 +1,5 @@
 import { useChatStore } from '@repo/common/store';
-import { ChatModeConfig } from '@repo/shared/config';
+import { ChatModeConfig, isImageGenerationModel } from '@repo/shared/config';
 import { Button, Tooltip } from '@repo/ui';
 import { IconPaperclip } from '@tabler/icons-react';
 import { FC } from 'react';
@@ -24,7 +24,7 @@ export const ImageUpload: FC<TImageUpload> = ({
         document.getElementById(id)?.click();
     };
 
-    if (!ChatModeConfig[chatMode]?.imageUpload) {
+    if (!ChatModeConfig[chatMode]?.imageUpload && !isImageGenerationModel(chatMode)) {
         return null;
     }
 

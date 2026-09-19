@@ -10,8 +10,7 @@
         "./main": "./main.ts",
         "./models": "./models.ts",
         "./tools": "./tools/index.ts",
-        "./workflow": "./workflow/flow.ts",
-        "./worker": "./worker/index.ts"
+        "./workflow": "./workflow/flow.ts"
     },
     "dependencies": {
         "@ai-sdk/anthropic": "^1.1.8",

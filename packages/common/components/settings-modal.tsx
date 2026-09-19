@@ -2,18 +2,16 @@
 import { useMcpToolsStore } from '@repo/common/store';
 import { Alert, AlertDescription, DialogFooter } from '@repo/ui';
 import { Button } from '@repo/ui/src/components/button';
-import { IconBolt, IconBoltFilled, IconKey, IconSettings2, IconTrash } from '@tabler/icons-react';
+import { IconBolt, IconBoltFilled, IconSettings2, IconTrash } from '@tabler/icons-react';
 
 import { Badge, Dialog, DialogContent, Input } from '@repo/ui';
 
 import { useChatEditor } from '@repo/common/hooks';
-import moment from 'moment';
 import { useState } from 'react';
-import { ApiKeys, useApiKeysStore } from '../store/api-keys.store';
 import { SETTING_TABS, useAppStore } from '../store/app.store';
 import { useChatStore } from '../store/chat.store';
 import { ChatEditor } from './chat-input';
-import { BYOKIcon, ToolIcon } from './icons';
+import { ToolIcon } from './icons';
 
 export const SettingsModal = () => {
     const isSettingOpen = useAppStore(state => state.isSettingsOpen);
@@ -33,12 +31,6 @@ export const SettingsModal = () => {
             title: 'Usage',
             key: SETTING_TABS.CREDITS,
             component: <CreditsSettings />,
-        },
-        {
-            icon: <IconKey size={16} strokeWidth={2} className="text-muted-foreground" />,
-            title: 'API Keys',
-            key: SETTING_TABS.API_KEYS,
-            component: <ApiKeySettings />,
         },
         // {
         //     title: 'MCP Tools',
@@ -90,7 +82,7 @@ export const MCPSettings = () => {
             <div className="flex flex-col">
                 <h2 className="flex items-center gap-1 text-base font-medium">MCP Tools</h2>
                 <p className="text-muted-foreground text-xs">
-                    Connect your MCP tools. This will only work with your own API keys.
+                    Connect your workspace MCP tools.
                 </p>
             </div>
             <div className="flex flex-col gap-2">
@@ -289,131 +281,17 @@ const AddToolDialog = ({ isOpen, onOpenChange, onAddTool }: AddToolDialogProps) 
     );
 };
 
-export const ApiKeySettings = () => {
-    const apiKeys = useApiKeysStore(state => state.getAllKeys());
-    const setApiKey = useApiKeysStore(state => state.setKey);
-    const [isEditing, setIsEditing] = useState<string | null>(null);
-
-    const apiKeyList = [
-        {
-            name: 'OpenAI',
-            key: 'OPENAI_API_KEY' as keyof ApiKeys,
-            value: apiKeys.OPENAI_API_KEY,
-            url: 'https://platform.openai.com/api-keys',
-        },
-        {
-            name: 'Anthropic',
-            key: 'ANTHROPIC_API_KEY' as keyof ApiKeys,
-            value: apiKeys.ANTHROPIC_API_KEY,
-            url: 'https://console.anthropic.com/settings/keys',
-        },
-        {
-            name: 'Google Gemini',
-            key: 'GEMINI_API_KEY' as keyof ApiKeys,
-            value: apiKeys.GEMINI_API_KEY,
-            url: 'https://ai.google.dev/api',
-        },
-    ];
-
-    const validateApiKey = (apiKey: string, provider: string) => {
-        // Validation logic will be implemented later
-        console.log(`Validating ${provider} API key: ${apiKey}`);
-        return true;
-    };
-
-    const handleSave = (keyName: keyof ApiKeys, value: string) => {
-        setApiKey(keyName, value);
-        setIsEditing(null);
-    };
-
-    const getMaskedKey = (key: string) => {
-        if (!key) return '';
-        return '****************' + key.slice(-4);
-    };
-
-    return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-col">
-                <h2 className="flex items-center gap-1 text-base font-semibold">
-                    API Keys <BYOKIcon />
-                </h2>
-
-                <p className="text-muted-foreground text-xs">
-                    By default, your API Key is stored locally on your browser and never sent
-                    anywhere else.
-                </p>
-            </div>
-
-            {apiKeyList.map(apiKey => (
-                <div key={apiKey.key} className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{apiKey.name} API Key:</span>
-                        <a
-                            href={apiKey.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-400 underline-offset-2 hover:underline"
-                        >
-                            (Get API key here)
-                        </a>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {isEditing === apiKey.key ? (
-                            <>
-                                <div className="flex-1">
-                                    <Input
-                                        value={apiKey.value || ''}
-                                        placeholder={`Enter ${apiKey.name} API key`}
-                                        onChange={e => setApiKey(apiKey.key, e.target.value)}
-                                    />
-                                </div>
-                                <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => handleSave(apiKey.key, apiKey.value || '')}
-                                >
-                                    <span className="flex items-center gap-1">✓ Save</span>
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex flex-1 items-center gap-2 rounded-md border px-3 py-1.5">
-                                    {apiKey.value ? (
-                                        <span className="flex-1">{getMaskedKey(apiKey.value)}</span>
-                                    ) : (
-                                        <span className="text-muted-foreground flex-1 text-sm">
-                                            No API key set
-                                        </span>
-                                    )}
-                                </div>
-                                <Button
-                                    variant={'bordered'}
-                                    size="sm"
-                                    onClick={() => setIsEditing(apiKey.key)}
-                                >
-                                    {apiKey.value ? 'Change Key' : 'Add Key'}
-                                </Button>
-                            </>
-                        )}
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-};
-
 export const CreditsSettings = () => {
     const remainingCredits = useChatStore(state => state.creditLimit.remaining);
     const maxLimit = useChatStore(state => state.creditLimit.maxLimit);
-    const resetDate = useChatStore(state => state.creditLimit.reset);
+    const isPro = useChatStore(state => state.creditLimit.isPro);
 
     const info = [
         {
             title: 'Plan',
             value: (
                 <Badge variant="secondary" className="bg-brand/10 text-brand rounded-full">
-                    <span className="text-xs font-medium">FREE</span>
+                    <span className="text-xs font-medium">{isPro ? 'PRO' : 'FREE'}</span>
                 </Badge>
             ),
         },
@@ -430,7 +308,7 @@ export const CreditsSettings = () => {
         },
         {
             title: 'Next reset',
-            value: moment(resetDate).fromNow(),
+            value: 'Daily',
         },
     ];
 
@@ -441,7 +319,7 @@ export const CreditsSettings = () => {
                 <Alert variant="info" className="w-full">
                     <AlertDescription className="text-muted-foreground/70 text-sm leading-tight">
                         You'll recieve some free credits everyday. Once credits are used, you can
-                        use your own API keys to continue.
+                        contact your admin to continue.
                     </AlertDescription>
                 </Alert>
 

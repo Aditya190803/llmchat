@@ -1,4 +1,3 @@
-import { useUser } from '@clerk/nextjs';
 import { cn, Dialog, DialogContent } from '@repo/ui';
 import { IconCircleCheckFilled } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
@@ -6,7 +5,6 @@ import ReactMarkdown from 'react-markdown';
 import { Logo } from './logo';
 export const IntroDialog = () => {
     const [isOpen, setIsOpen] = useState(false);
-    const { isSignedIn } = useUser();
 
     useEffect(() => {
         const hasSeenIntro = localStorage.getItem('hasSeenIntro');
@@ -43,7 +41,7 @@ export const IntroDialog = () => {
         },
         {
             icon,
-            text: `**BYOK (Bring Your Own Key)**: Use your own API key for unlimited chat.`,
+            text: `**Managed access**: Your workspace admin controls models and usage.`, 
         },
         {
             icon,
@@ -54,10 +52,6 @@ export const IntroDialog = () => {
             text: `**Usage Tracking**: Monitor your model usage without paying (coming soon).`,
         },
     ];
-
-    if (isSignedIn) {
-        return null;
-    }
 
     return (
         <Dialog

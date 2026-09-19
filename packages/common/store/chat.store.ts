@@ -82,9 +82,11 @@ type State = {
     creditLimit: {
         remaining: number | undefined;
         maxLimit: number | undefined;
-        reset: string | undefined;
-        isAuthenticated: boolean;
+        isPro: boolean;
+        isAdmin: boolean;
+        allowedModes: string[];
         isFetched: boolean;
+        loggedOut: boolean;
     };
 };
 
@@ -234,10 +236,10 @@ const initializeWorker = () => {
     if (typeof window === 'undefined') return;
 
     try {
-        // Create a shared worker
-        dbWorker = new SharedWorker(new URL('./db-sync.worker.ts', import.meta?.url), {
-            type: 'module',
-        });
+        // Served from apps/web/public so the URL is same-origin in dev and prod.
+        // (Bundler-resolved `new URL('./x', import.meta.url)` breaks under Turbopack
+        // dev with externalDir, producing a file:// URL the browser rejects.)
+        dbWorker = new SharedWorker('/db-sync.worker.js');
 
         // Set up message handler
         dbWorker.port.onmessage = async event => {
@@ -304,11 +306,14 @@ const initializeWorker = () => {
         dbWorker.port.start();
 
         // Handle worker errors
-        dbWorker.onerror = err => {
-            console.error('SharedWorker error:', err);
+        dbWorker.onerror = () => {
+            dbWorker = null;
+            initializeTabSync();
         };
     } catch (error) {
-        console.error('Failed to initialize SharedWorker:', error);
+        // Cross-tab sync is best-effort; localStorage fallback covers this tab.
+        // console.warn (not error) keeps the Next dev overlay clean.
+        console.warn('SharedWorker unavailable, using local tab sync.');
         // Fallback to localStorage method if SharedWorker isn't supported
         initializeTabSync();
     }
@@ -456,9 +461,11 @@ export const useChatStore = create(
         creditLimit: {
             remaining: undefined,
             maxLimit: undefined,
-            reset: undefined,
-            isAuthenticated: false,
+            isPro: false,
+            isAdmin: false,
+            allowedModes: [],
             isFetched: false,
+            loggedOut: false,
         },
         showSuggestions: true,
 
@@ -538,13 +545,24 @@ export const useChatStore = create(
         fetchRemainingCredits: async () => {
             try {
                 const response = await fetch('/api/messages/remaining');
+                if (response.status === 401) {
+                    set(state => ({
+                        creditLimit: { ...state.creditLimit, isFetched: true, loggedOut: true },
+                    }));
+                    return;
+                }
                 if (!response.ok) throw new Error('Failed to fetch credit info');
 
                 const data = await response.json();
                 set({
                     creditLimit: {
-                        ...data,
+                        remaining: data.remaining,
+                        maxLimit: data.maxLimit,
+                        isPro: !!data.isPro,
+                        isAdmin: !!data.isAdmin,
+                        allowedModes: data.allowedModes || [],
                         isFetched: true,
+                        loggedOut: false,
                     },
                 });
             } catch (error) {
