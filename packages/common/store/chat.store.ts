@@ -2,7 +2,7 @@
 
 import { Model, models } from '@repo/ai/models';
 import { ChatMode } from '@repo/shared/config';
-import { MessageGroup, Thread, ThreadItem } from '@repo/shared/types';
+import { MessageGroup, Page, Thread, ThreadItem } from '@repo/shared/types';
 import Dexie, { Table } from 'dexie';
 import { nanoid } from 'nanoid';
 import { create } from 'zustand';
@@ -12,12 +12,18 @@ import { useAppStore } from './app.store';
 class ThreadDatabase extends Dexie {
     threads!: Table<Thread>;
     threadItems!: Table<ThreadItem>;
+    pages!: Table<Page>;
 
     constructor() {
         super('ThreadDatabase');
         this.version(1).stores({
             threads: 'id, createdAt, pinned, pinnedAt',
             threadItems: 'id, threadId, parentId, createdAt',
+        });
+        this.version(2).stores({
+            threads: 'id, createdAt, pinned, pinnedAt',
+            threadItems: 'id, threadId, parentId, createdAt',
+            pages: 'id, threadId, updatedAt',
         });
     }
 }
@@ -28,6 +34,13 @@ if (typeof window !== 'undefined') {
     db = new ThreadDatabase();
     CONFIG_KEY = 'chat-config';
 }
+
+export const getThreadDb = (): ThreadDatabase => {
+    if (!db && typeof window !== 'undefined') {
+        db = new ThreadDatabase();
+    }
+    return db;
+};
 
 const loadInitialData = async () => {
     const threads = await db.threads.toArray();
@@ -655,6 +668,7 @@ export const useChatStore = create(
         clearAllThreads: async () => {
             await db.threads.clear();
             await db.threadItems.clear();
+            await db.pages.clear();
             set(state => {
                 state.threads = [];
                 state.threadItems = [];
@@ -898,6 +912,7 @@ export const useChatStore = create(
         deleteThread: async threadId => {
             await db.threads.delete(threadId);
             await db.threadItems.where('threadId').equals(threadId).delete();
+            await db.pages.where('threadId').equals(threadId).delete();
             set(state => {
                 state.threads = state.threads.filter((t: Thread) => t.id !== threadId);
                 state.currentThreadId = state.threads[0]?.id;

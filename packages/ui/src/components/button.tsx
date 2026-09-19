@@ -106,9 +106,16 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 ref={ref}
                 {...props}
             >
-                {PrefixIcon && <PrefixIcon size={iconSizes[iconSize]} strokeWidth={2} />}
-                {Icon ? <Icon size={iconSizes[iconSize]} strokeWidth={2} /> : children}
-                {SuffixIcon && <SuffixIcon size={iconSizes[iconSize]} strokeWidth={2} />}
+                {/* Slot (asChild) requires exactly one child element. */}
+                {asChild ? (
+                    children
+                ) : (
+                    <>
+                        {PrefixIcon && <PrefixIcon size={iconSizes[iconSize]} strokeWidth={2} />}
+                        {Icon ? <Icon size={iconSizes[iconSize]} strokeWidth={2} /> : children}
+                        {SuffixIcon && <SuffixIcon size={iconSizes[iconSize]} strokeWidth={2} />}
+                    </>
+                )}
             </Comp>
         );
 

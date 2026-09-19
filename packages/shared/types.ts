@@ -94,3 +94,31 @@ export type MessageGroup = {
     userMessage: ThreadItem;
     assistantMessages: ThreadItem[];
 };
+
+/** HTML pages (publishable); slides, docs and sheets download as .pptx/.docx/.xlsx. */
+export type PageType = 'html' | 'slides' | 'doc' | 'sheet';
+
+export type PageVersion = {
+    id: string;
+    content: string;
+    createdAt: Date;
+    label?: string;
+};
+
+export type Page = {
+    id: string;
+    threadId: string;
+    threadItemId?: string;
+    title: string;
+    type: PageType;
+    /** HTML: full document. Slides/sheets: JSON. Docs: markdown. */
+    content: string;
+    versions: PageVersion[];
+    activeVersionId?: string;
+    /** Published copy at /pages/:shareId (HTML pages only). */
+    shareId?: string;
+    /** Version that the published copy currently reflects. */
+    publishedVersionId?: string;
+    createdAt: Date;
+    updatedAt: Date;
+};

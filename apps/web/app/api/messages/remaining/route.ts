@@ -20,11 +20,13 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unable to load usage' }, { status: 500 });
     }
 
+    // Mirrors canUseMode(): an explicit policy overrides the free defaults.
+    const isPrivileged = !!session?.isPro || !!session?.isAdmin;
     const allowedModes = Object.values(ChatMode).filter(mode => {
         const policy = policies.find(p => p.mode === getModelFromChatMode(mode));
-        return session?.isPro || session?.isAdmin
-            ? policy?.proAllowed !== false
-            : policy?.freeAllowed === true || FREE_DEFAULT_MODELS.has(getModelFromChatMode(mode));
+        if (isPrivileged) return policy?.proAllowed !== false;
+        if (!policy) return FREE_DEFAULT_MODELS.has(getModelFromChatMode(mode));
+        return policy.freeAllowed === true;
     });
 
     return NextResponse.json({

@@ -1,6 +1,7 @@
 import { createTask } from '@repo/orchestrator';
 import { z } from 'zod';
 import { getModelFromChatMode, ModelEnum } from '../../models';
+import { PAGES_AUTO_INSTRUCTION } from '../pages-prompt';
 import { WorkflowContextSchema, WorkflowEventSchema } from '../flow';
 import { readWebPagesWithTimeout, TReaderResult } from '../reader';
 import {
@@ -17,7 +18,7 @@ const buildWebSearchPrompt = (results: TReaderResult[]): string => {
 
     let prompt = `You are a helpful assistant that can answer questions and help with tasks.
 Today is ${today}.
-
+${PAGES_AUTO_INSTRUCTION}
 
 ${results
     .map(

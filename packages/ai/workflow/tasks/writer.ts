@@ -1,6 +1,7 @@
 import { createTask } from '@repo/orchestrator';
 import { format } from 'date-fns';
 import { ModelEnum } from '../../models';
+import { PAGES_AUTO_INSTRUCTION } from '../pages-prompt';
 import { WorkflowContextSchema, WorkflowEventSchema } from '../flow';
 import { ChunkBuffer, generateText, handleError, sendEvents } from '../utils';
 
@@ -23,6 +24,10 @@ export const writerTask = createTask<WorkflowEventSchema, WorkflowContextSchema>
     Today is ${humanizedDate}.
 You are a Comprehensive Research Writer tasked with providing an extremely detailed and thorough writing about "${question}".
 Your goal is to create a comprehensive report based on the research information provided.
+${PAGES_AUTO_INSTRUCTION}
+
+NOTE: this report is a CHAT answer. Only use a Page fence if the user explicitly
+asked for an HTML page, a slide deck or a Word document; otherwise write inline.
 
 First, carefully read and analyze the following research information:
 

@@ -13,11 +13,18 @@
         "type-check": "tsc --noEmit"
     },
     "dependencies": {
+        "@repo/actions": "*",
         "@repo/ai": "*",
         "@repo/shared": "*",
         "@repo/ui": "*",
-        "@repo/actions": "*",
-        "@tiptap/extension-character-count": "^2.11.7"
+        "@tiptap/extension-character-count": "^2.11.7",
+        "docx": "^9",
+        "exceljs": "^4.4.0",
+        "jsonrepair": "^3",
+        "marked": "^15.0.7",
+        "pptxgenjs": "^4.0.1",
+        "react-markdown": "^9.0.3",
+        "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
         "@repo/typescript-config": "*",

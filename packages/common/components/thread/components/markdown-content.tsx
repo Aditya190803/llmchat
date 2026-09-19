@@ -9,6 +9,7 @@ import { MDXRemote } from 'next-mdx-remote';
 import { MDXRemoteSerializeResult } from 'next-mdx-remote/rsc';
 import { serialize } from 'next-mdx-remote/serialize';
 import { memo, Suspense, useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 export const markdownStyles = {
@@ -75,11 +76,24 @@ export const removeIncompleteTags = (content: string) => {
     return content;
 };
 
+// MDX parses HTML as JSX, so void tags like <br> must self-close or the whole
+// chunk fails to compile. Code spans and fenced blocks are left untouched.
+const selfCloseVoidTags = (content: string) =>
+    content
+        .split(/(```[\s\S]*?```|`[^`\n]*`)/g)
+        .map((part, i) =>
+            i % 2 ? part : part.replace(/<(br|hr|img|wbr)\b([^>]*?)\s*\/?>/gi, '<$1$2 />')
+        )
+        .join('');
+
 // New function to normalize content before serialization
 export const normalizeContent = (content: string) => {
-    // Replace literal "\n" strings with actual newlines
-    // This handles cases where newlines are escaped in the string
-    return content.replace(/\\n/g, '\n');
+    // Only fix escaped newlines when the text has almost no real line breaks
+    // (streaming artifact). Real markdown with real newlines passes through.
+    const realBreaks = (content.match(/\n/g) || []).length;
+    const unescaped =
+        realBreaks < 3 && content.includes('\\n') ? content.replace(/\\n/g, '\n') : content;
+    return selfCloseVoidTags(unescaped);
 };
 
 function parseCitationsWithSourceTags(markdown: string): string {
@@ -171,6 +185,7 @@ MarkdownContent.displayName = 'MarkdownContent';
 
 export const MemoizedMdxChunk = memo(({ chunk }: { chunk: string }) => {
     const [mdx, setMdx] = useState<MDXRemoteSerializeResult | null>(null);
+    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         if (!chunk) return;
@@ -188,9 +203,13 @@ export const MemoizedMdxChunk = memo(({ chunk }: { chunk: string }) => {
 
                 if (isMounted) {
                     setMdx(serialized);
+                    setFailed(false);
                 }
             } catch (error) {
-                console.error('Error serializing MDX chunk:', error);
+                // Not valid MDX (stray JSX-like text): render as plain markdown
+                // instead of dropping the content.
+                console.warn('MDX compile failed, rendering as markdown:', error);
+                if (isMounted) setFailed(true);
             }
         })();
 
@@ -198,6 +217,10 @@ export const MemoizedMdxChunk = memo(({ chunk }: { chunk: string }) => {
             isMounted = false;
         };
     }, [chunk]);
+
+    if (failed) {
+        return <ReactMarkdown remarkPlugins={[remarkGfm]}>{chunk}</ReactMarkdown>;
+    }
 
     if (!mdx) {
         return null;

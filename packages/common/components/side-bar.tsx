@@ -307,6 +307,7 @@ export const Sidebar = () => {
                         rounded="lg"
                         tooltip={isSidebarOpen ? undefined : 'Settings'}
                         onClick={() => setIsSettingsOpen(true)}
+                        className={cn(isSidebarOpen && 'w-full')}
                     >
                         <IconSettings2 size={14} strokeWidth={2} />
                         {isSidebarOpen && 'Settings'}

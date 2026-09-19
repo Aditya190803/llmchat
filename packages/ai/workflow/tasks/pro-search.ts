@@ -1,6 +1,7 @@
 import { createTask } from '@repo/orchestrator';
 import { z } from 'zod';
 import { ModelEnum } from '../../models';
+import { PAGES_AUTO_INSTRUCTION } from '../pages-prompt';
 import { WorkflowContextSchema, WorkflowEventSchema } from '../flow';
 import {
     ChunkBuffer,
@@ -24,6 +25,7 @@ type SearchResult = {
 const getAnalysisPrompt = (question: string, webPageContent: SearchResult[]): string => {
     return `
 Today is ${getHumanizedDate()}.
+${PAGES_AUTO_INSTRUCTION}
 
 You are a Web Research Assistant helping users quickly understand search findings related to "${question}".
 

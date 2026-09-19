@@ -4,7 +4,7 @@ import { buildCoreMessagesFromThreadItems, plausible } from '@repo/shared/utils'
 import { nanoid } from 'nanoid';
 import { useParams, useRouter } from 'next/navigation';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo } from 'react';
-import { useChatStore, useMcpToolsStore } from '../store';
+import { useChatStore, useMcpToolsStore, usePageStore } from '../store';
 
 export type AgentContextType = {
     runAgent: (body: any) => Promise<void>;
@@ -217,6 +217,21 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
                                         }
                                     } else if (currentEvent === 'done' && data.type === 'done') {
                                         setIsGenerating(false);
+                                        // Turn page fences in the final answer into Pages.
+                                        const answer = threadItemMap.get(data.threadItemId)?.answer;
+                                        const fullText = answer?.text || answer?.finalText || '';
+                                        if (fullText.includes('```page:')) {
+                                            usePageStore
+                                                .getState()
+                                                .upsertParsedPages({
+                                                    threadId: data.threadId,
+                                                    threadItemId: data.threadItemId,
+                                                    text: fullText,
+                                                })
+                                                .catch(e =>
+                                                    console.warn('Page extraction failed', e)
+                                                );
+                                        }
                                         const streamDuration = performance.now() - streamStartTime;
                                         console.log(
                                             'done event received',

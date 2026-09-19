@@ -1,6 +1,7 @@
 import { createTask } from '@repo/orchestrator';
 import { isImageGenerationModel } from '@repo/shared/config';
 import { getModelFromChatMode } from '../../models';
+import { PAGES_AUTO_INSTRUCTION } from '../pages-prompt';
 import { WorkflowContextSchema, WorkflowEventSchema } from '../flow';
 import {
     ChunkBuffer,
@@ -72,6 +73,7 @@ export const completionTask = createTask<WorkflowEventSchema, WorkflowContextSch
 
         let prompt = `You are a helpful assistant that can answer questions and help with tasks.
         Today is ${getHumanizedDate()}.
+        ${PAGES_AUTO_INSTRUCTION}
         `;
 
         const reasoningBuffer = new ChunkBuffer({

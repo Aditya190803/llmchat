@@ -5,12 +5,14 @@ import {
     Message,
     MessageActions,
     MotionSkeleton,
+    PageBuildingCard,
+    PageCards,
     QuestionPrompt,
     SourceGrid,
     Steps,
 } from '@repo/common/components';
 import { useAnimatedText } from '@repo/common/hooks';
-import { useChatStore } from '@repo/common/store';
+import { getStreamingPage, stripPageFences, useChatStore } from '@repo/common/store';
 import { ThreadItem as ThreadItemType } from '@repo/shared/types';
 import { Alert, AlertDescription, cn } from '@repo/ui';
 import { IconAlertCircle, IconBook } from '@tabler/icons-react';
@@ -61,6 +63,12 @@ export const ThreadItem = memo(
                 (threadItem.answer?.images && threadItem.answer.images.length > 0)
             );
         }, [threadItem.answer]);
+
+        const isDone = ['COMPLETED', 'ERROR', 'ABORTED'].includes(threadItem.status || '');
+        const streamingPage = useMemo(
+            () => (isDone ? null : getStreamingPage(threadItem.answer?.text || '')),
+            [isDone, threadItem.answer?.text]
+        );
 
         const hasResponse = useMemo(() => {
             return (
@@ -128,7 +136,7 @@ export const ThreadItem = memo(
                                     ) : null}
                                     {threadItem.answer?.text && (
                                         <MarkdownContent
-                                            content={animatedText || ''}
+                                            content={stripPageFences(animatedText || '')}
                                             key={`answer-${threadItem.id}`}
                                             isCompleted={['COMPLETED', 'ERROR', 'ABORTED'].includes(
                                                 threadItem.status || ''
@@ -142,6 +150,17 @@ export const ThreadItem = memo(
                                         />
                                     )}
                                 </div>
+                            )}
+                            {streamingPage ? (
+                                <div className="mt-3">
+                                    <PageBuildingCard {...streamingPage} />
+                                </div>
+                            ) : (
+                                isAnimationComplete && (
+                                    <div className="mt-3 empty:hidden">
+                                        <PageCards threadItem={threadItem} />
+                                    </div>
+                                )
                             )}
                         </div>
                         <QuestionPrompt threadItem={threadItem} />
