@@ -76,12 +76,19 @@ export const ThreadItem = memo(
         useEffect(() => {
             if (streamingPage) {
                 setLivePage({ ...streamingPage, threadItemId: threadItem.id });
-            } else if (isDone) {
-                // A finished page is handed over by the store; this clears an
-                // aborted or failed one.
-                clearLivePage(threadItem.id);
+                return;
             }
-        }, [streamingPage, isDone, threadItem.id, setLivePage, clearLivePage]);
+            if (!isDone) return;
+            // The store swaps the live page for the saved one in a single update,
+            // so clearing here would blank the panel until that write lands.
+            // Only clean up when no page is coming, or if the save never arrives.
+            if (threadItem.status === 'ABORTED' || threadItem.status === 'ERROR') {
+                clearLivePage(threadItem.id);
+                return;
+            }
+            const timeout = setTimeout(() => clearLivePage(threadItem.id), 10000);
+            return () => clearTimeout(timeout);
+        }, [streamingPage, isDone, threadItem.status, threadItem.id, setLivePage, clearLivePage]);
 
         useEffect(() => () => clearLivePage(threadItem.id), [threadItem.id, clearLivePage]);
 

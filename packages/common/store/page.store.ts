@@ -264,7 +264,13 @@ export const usePageStore = create<PageState & PageActions>()(
             },
 
             // Opens the panel on the first chunk so the page builds in view.
-            setLivePage: live => set({ live, panelOpen: true }),
+            setLivePage: live =>
+                set(state => {
+                    // Ignore late chunks for a page that has already been saved.
+                    if (state.pages.some(p => p.threadItemId === live.threadItemId)) return;
+                    state.live = live;
+                    state.panelOpen = true;
+                }),
             clearLivePage: threadItemId =>
                 set(state => {
                     if (!threadItemId || state.live?.threadItemId === threadItemId) {
