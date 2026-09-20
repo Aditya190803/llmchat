@@ -45,11 +45,7 @@ const titlePart = (part: string) => {
 };
 
 export const formatGatewayModelName = (modelId: string) =>
-    modelId
-        .replace(/_/g, ' ')
-        .split('-')
-        .map(titlePart)
-        .join(' ');
+    modelId.replace(/_/g, ' ').split('-').map(titlePart).join(' ');
 
 export const effortLabel = (effort?: ModelEffort) => {
     switch (effort) {
@@ -65,6 +61,54 @@ export const effortLabel = (effort?: ModelEffort) => {
         default:
             return undefined;
     }
+};
+
+/** Thinking longer costs more; a tiered/instant model costs its base price. */
+export const EFFORT_COST_MULTIPLIER: Record<ModelEffort, number> = {
+    instant: 1,
+    'extra-low': 1,
+    low: 1.25,
+    medium: 1.5,
+    high: 2,
+};
+
+// Matched per name segment: "gemini" must not count as "mini".
+const CHEAP_SEGMENTS = new Set([
+    'lite',
+    'nano',
+    'mini',
+    'tiny',
+    'small',
+    'oss',
+    'haiku',
+    'tab',
+    'chat',
+]);
+const PREMIUM_SEGMENTS = new Set([
+    'pro',
+    'opus',
+    'sonnet',
+    'thinking',
+    'reasoning',
+    'agent',
+    'ultra',
+    'max',
+]);
+
+/** Small models are cheap, frontier/reasoning models are not. */
+export const getModelBaseCost = (modelId: string) => {
+    const segments = modelId.toLowerCase().split(/[-_.\s]+/);
+    if (segments.some(segment => PREMIUM_SEGMENTS.has(segment))) return 4;
+    if (segments.some(segment => CHEAP_SEGMENTS.has(segment))) return 1;
+    return 2;
+};
+
+/** Credits charged for one message with a live gateway model. */
+export const getGatewayModelCreditCost = (modelId: string) => {
+    if (isImageGenerationModel(modelId)) return IMAGE_GENERATION_CREDIT_COST;
+    const effort = getModelEffort(modelId);
+    const multiplier = effort ? EFFORT_COST_MULTIPLIER[effort] : 1;
+    return Math.max(1, Math.ceil(getModelBaseCost(getModelFamilyId(modelId)) * multiplier));
 };
 
 export const getGatewayModelDisplayName = (modelId: string) => {

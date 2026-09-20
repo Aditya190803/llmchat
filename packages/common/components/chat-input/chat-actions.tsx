@@ -7,6 +7,7 @@ import {
     ChatModeConfig,
     effortLabel,
     GatewayModelFamily,
+    getCreditCost,
     groupGatewayModels,
     isImageGenerationModel,
 } from '@repo/shared/config';
@@ -31,6 +32,7 @@ import {
     IconAtom,
     IconCheck,
     IconChevronDown,
+    IconSearch,
     IconNorthStar,
     IconPaperclip,
     IconPlayerStopFilled,
@@ -103,6 +105,15 @@ export const AttachmentButton = () => {
     );
 };
 
+const CreditChip = ({ credits }: { credits: number }) => (
+    <span
+        className="text-muted-foreground shrink-0 text-[10px] tabular-nums"
+        title={`${credits} credit${credits === 1 ? '' : 's'} per message`}
+    >
+        {credits}
+    </span>
+);
+
 /** Thinking effort, as its own composer control: only models with levels show it. */
 export const EffortButton = () => {
     const chatMode = useChatStore(state => state.chatMode);
@@ -162,7 +173,12 @@ export const EffortButton = () => {
                     ))}
                 </div>
                 <p className="text-muted-foreground mt-2 text-[11px]">
-                    Higher effort thinks longer before answering.
+                    Higher effort thinks longer and costs more:{' '}
+                    <span className="text-foreground font-medium">
+                        {getCreditCost(chatMode)} credit
+                        {getCreditCost(chatMode) === 1 ? '' : 's'}
+                    </span>{' '}
+                    per message.
                 </p>
             </PopoverContent>
         </Popover>
@@ -179,59 +195,54 @@ const ModelFamilyList = ({
     chatMode: ChatMode;
     setChatMode: (chatMode: ChatMode) => void;
     onSelect?: () => void;
-}) => {
-    return (
-        <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto pr-1">
-            {families.map(family => {
-                const selected = family.variants.some(variant => variant.id === chatMode);
-                const selectedVariant = family.variants.find(variant => variant.id === chatMode);
-                const targetId = (selectedVariant || defaultVariant(family)).id as ChatMode;
-                return (
-                    <button
-                        type="button"
-                        key={family.id}
-                        onClick={() => {
-                            setChatMode(targetId);
-                            onSelect?.();
-                        }}
+}) => (
+    <div className="flex flex-col">
+        {families.map(family => {
+            const selectedVariant = family.variants.find(variant => variant.id === chatMode);
+            const targetId = (selectedVariant || defaultVariant(family)).id as ChatMode;
+            return (
+                <button
+                    type="button"
+                    key={family.id}
+                    onClick={() => {
+                        setChatMode(targetId);
+                        onSelect?.();
+                    }}
+                    className={cn(
+                        'hover:bg-muted flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors',
+                        selectedVariant && 'bg-muted font-medium'
+                    )}
+                >
+                    <span
                         className={cn(
-                            'hover:bg-muted flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
-                            selected && 'bg-muted font-medium'
+                            'flex size-3.5 shrink-0 items-center justify-center',
+                            selectedVariant ? 'text-foreground' : 'text-transparent'
                         )}
                     >
-                        <span
-                            className={cn(
-                                'flex h-4 w-4 shrink-0 items-center justify-center',
-                                selected ? 'text-foreground' : 'text-transparent'
-                            )}
-                        >
-                            <IconCheck size={14} strokeWidth={2.5} />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">{family.label}</span>
-                        {family.isImage && (
-                            <span className="text-muted-foreground shrink-0 text-[10px]">
-                                Image
-                            </span>
-                        )}
-                        {family.variants.length > 1 && (
-                            <span className="text-muted-foreground shrink-0 text-[10px]">
-                                {family.variants.length} levels
-                            </span>
-                        )}
-                    </button>
-                );
-            })}
-        </div>
-    );
-};
+                        <IconCheck size={13} strokeWidth={2.5} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{family.label}</span>
+                    {family.isImage && (
+                        <span className="text-muted-foreground shrink-0 text-[10px]">Image</span>
+                    )}
+                    <CreditChip credits={getCreditCost(targetId)} />
+                </button>
+            );
+        })}
+    </div>
+);
 
 export const ChatModeButton = () => {
     const chatMode = useChatStore(state => state.chatMode);
     const setChatMode = useChatStore(state => state.setChatMode);
     const creditLimit = useChatStore(state => state.creditLimit);
     const [isChatModeOpen, setIsChatModeOpen] = useState(false);
+    const [query, setQuery] = useState('');
     const isChatPage = usePathname().startsWith('/chat');
     const families = useGatewayModelFamilies();
+    const visibleFamilies = families.filter(family =>
+        family.label.toLowerCase().includes(query.toLowerCase().trim())
+    );
     const canShowMode = (mode: ChatMode) =>
         !creditLimit.isFetched
             ? creditLimit.loggedOut
@@ -255,6 +266,11 @@ export const ChatModeButton = () => {
         setChatMode(defaultVariant(preferred).id as ChatMode);
     }, [isStale, families, setChatMode]);
 
+    // Start each visit with the full list rather than a stale search.
+    useEffect(() => {
+        if (!isChatModeOpen) setQuery('');
+    }, [isChatModeOpen]);
+
     return (
         <Popover open={isChatModeOpen} onOpenChange={setIsChatModeOpen} modal={false}>
             <PopoverTrigger asChild>
@@ -270,76 +286,92 @@ export const ChatModeButton = () => {
                 side="top"
                 sideOffset={8}
                 collisionPadding={12}
-                className="z-[70] max-h-[min(34rem,var(--radix-popover-content-available-height))] w-[320px] overflow-y-auto p-3"
+                className="z-[70] flex max-h-[min(30rem,var(--radix-popover-content-available-height))] w-[340px] flex-col p-0"
             >
-                {isChatPage && visibleAdvancedOptions.length > 0 && (
-                    <div className="border-border mb-3 border-b pb-3">
-                        <p className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wide">
-                            Modes
-                        </p>
-                        <div className="flex flex-col gap-0.5">
+                {families.length > 6 && (
+                    <div className="border-border shrink-0 border-b p-2">
+                        <div className="bg-tertiary flex h-8 items-center gap-2 rounded-md px-2">
+                            <IconSearch size={14} className="text-muted-foreground shrink-0" />
+                            <input
+                                value={query}
+                                onChange={event => setQuery(event.target.value)}
+                                placeholder="Search models"
+                                aria-label="Search models"
+                                className="placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+                )}
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                    {isChatPage && !query && visibleAdvancedOptions.length > 0 && (
+                        <>
+                            <p className="text-muted-foreground px-2 pb-1 pt-1 text-[10px] font-medium uppercase tracking-wide">
+                                Modes
+                            </p>
                             {visibleAdvancedOptions.map(option => (
                                 <button
                                     key={option.value}
                                     type="button"
+                                    title={option.description}
                                     onClick={() => {
                                         setChatMode(option.value);
                                         setIsChatModeOpen(false);
                                     }}
                                     className={cn(
-                                        'hover:bg-muted flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
-                                        chatMode === option.value && 'bg-muted'
+                                        'hover:bg-muted flex h-8 w-full items-center gap-2 rounded-md px-2 text-left transition-colors',
+                                        chatMode === option.value && 'bg-muted font-medium'
                                     )}
                                 >
                                     <span
                                         className={cn(
-                                            'flex h-4 w-4 shrink-0 items-center justify-center pt-0.5',
+                                            'flex size-3.5 shrink-0 items-center justify-center',
                                             chatMode === option.value
                                                 ? 'text-foreground'
                                                 : 'text-transparent'
                                         )}
                                     >
-                                        <IconCheck size={14} strokeWidth={2.5} />
+                                        <IconCheck size={13} strokeWidth={2.5} />
                                     </span>
-                                    <span className="text-muted-foreground mt-0.5 shrink-0">
+                                    <span className="text-muted-foreground shrink-0">
                                         {option.icon}
                                     </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="flex items-center gap-1.5 text-sm font-medium">
-                                            {option.label}
-                                            {ChatModeConfig[option.value]?.isNew && <NewIcon />}
-                                        </span>
-                                        {option.description && (
-                                            <span className="text-muted-foreground block truncate text-xs font-light">
-                                                {option.description}
-                                            </span>
-                                        )}
+                                    <span className="min-w-0 flex-1 truncate text-sm">
+                                        {option.label}
                                     </span>
+                                    {ChatModeConfig[option.value]?.isNew && <NewIcon />}
+                                    <CreditChip credits={getCreditCost(option.value)} />
                                 </button>
                             ))}
-                        </div>
-                    </div>
-                )}
-                <p className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wide">
-                    Models
+                            <div className="border-border my-2 border-t" />
+                        </>
+                    )}
+
+                    <p className="text-muted-foreground px-2 pb-1 text-[10px] font-medium uppercase tracking-wide">
+                        Models
+                    </p>
+                    {!families.length ? (
+                        <p className="text-muted-foreground animate-pulse px-2 py-3 text-xs">
+                            Loading models…
+                        </p>
+                    ) : !visibleFamilies.length ? (
+                        <p className="text-muted-foreground px-2 py-3 text-xs">
+                            No model matches “{query}”.
+                        </p>
+                    ) : (
+                        <ModelFamilyList
+                            families={visibleFamilies}
+                            chatMode={chatMode}
+                            setChatMode={setChatMode}
+                            onSelect={() => setIsChatModeOpen(false)}
+                        />
+                    )}
+                </div>
+
+                <p className="border-border text-muted-foreground shrink-0 border-t px-3 py-2 text-[11px]">
+                    Credits per message. Effort is set next to the send button.
                 </p>
-                {families.length === 0 ? (
-                    <p className="text-muted-foreground animate-pulse px-2 py-3 text-xs">
-                        Loading models…
-                    </p>
-                ) : (
-                    <ModelFamilyList
-                        families={families}
-                        chatMode={chatMode}
-                        setChatMode={setChatMode}
-                        onSelect={() => setIsChatModeOpen(false)}
-                    />
-                )}
-                {selectedFamily?.isImage && (
-                    <p className="text-muted-foreground border-border/70 mt-3 border-t pt-3 text-xs">
-                        Image generation uses 10 Pro credits per image.
-                    </p>
-                )}
             </PopoverContent>
         </Popover>
     );

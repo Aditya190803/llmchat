@@ -1,3 +1,4 @@
+import { getGatewayModelCreditCost } from './model-catalog';
 export enum ChatMode {
     Pro = 'pro',
     Deep = 'deep',
@@ -116,6 +117,13 @@ export const CHAT_MODE_CREDIT_COSTS = {
     [ChatMode.GEMINI_2_FLASH]: 1,
     [ChatMode.DEEPSEEK_R1]: 5,
 };
+
+/**
+ * Credits for a message. Legacy chat modes keep their fixed price; live gateway
+ * models are priced by model class and the thinking effort they were set to.
+ */
+export const getCreditCost = (mode: string): number =>
+    CHAT_MODE_CREDIT_COSTS[mode as ChatMode] ?? getGatewayModelCreditCost(mode);
 
 export const getChatModeName = (mode: ChatMode | string) => {
     switch (mode) {

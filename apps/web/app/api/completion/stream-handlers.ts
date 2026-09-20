@@ -1,5 +1,5 @@
 import { runWorkflow } from '@repo/ai/workflow';
-import { CHAT_MODE_CREDIT_COSTS, ChatMode } from '@repo/shared/config';
+import { ChatMode, getCreditCost } from '@repo/shared/config';
 import { logger } from '@repo/shared/logger';
 import { EVENT_TYPES, posthog } from '@repo/shared/posthog';
 import { Geo } from '@vercel/functions';
@@ -63,7 +63,7 @@ export async function executeStream({
     onFinish?: () => Promise<void>;
 }): Promise<{ success: boolean } | Response> {
     try {
-        const creditCost = CHAT_MODE_CREDIT_COSTS[data.mode as ChatMode] ?? 1;
+        const creditCost = getCreditCost(data.mode);
 
         const { signal } = abortController;
 
