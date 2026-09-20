@@ -23,7 +23,6 @@ import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-    Slider,
 } from '@repo/ui';
 import {
     IconArrowUp,
@@ -87,12 +86,6 @@ const defaultVariant = (family: GatewayModelFamily) =>
 const selectedFamilyForMode = (families: GatewayModelFamily[], mode: ChatMode) =>
     families.find(family => family.variants.some(variant => variant.id === mode));
 
-const effortIndexForMode = (family: GatewayModelFamily, mode: ChatMode) =>
-    Math.max(
-        0,
-        family.variants.findIndex(variant => variant.id === mode)
-    );
-
 export const AttachmentButton = () => {
     return (
         <Button
@@ -119,34 +112,35 @@ const EffortControl = ({
 }) => {
     if (family.variants.length < 2) return null;
 
-    const selectedIndex = effortIndexForMode(family, chatMode);
-    const selectedVariant = family.variants[selectedIndex];
-
     return (
         <div className="border-border/70 mt-3 border-t pt-3">
-            <div className="flex items-center justify-between text-xs">
-                <span className="font-medium">Thinking effort</span>
-                <span className="text-muted-foreground">
-                    {effortLabel(selectedVariant?.effort) || 'Default'}
-                </span>
+            <p className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wide">
+                Thinking effort
+            </p>
+            <div className="bg-tertiary flex items-center gap-0.5 rounded-lg p-0.5">
+                {family.variants.map(variant => {
+                    const selected = variant.id === chatMode;
+                    return (
+                        <button
+                            key={variant.id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setChatMode(variant.id as ChatMode)}
+                            className={cn(
+                                'flex h-7 flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors',
+                                selected
+                                    ? 'bg-background text-foreground shadow-subtle-xs'
+                                    : 'text-muted-foreground hover:text-foreground'
+                            )}
+                        >
+                            {effortLabel(variant.effort) || 'Default'}
+                        </button>
+                    );
+                })}
             </div>
-            <Slider
-                aria-label="Thinking effort"
-                min={0}
-                max={family.variants.length - 1}
-                step={1}
-                value={[selectedIndex]}
-                onValueChange={value => {
-                    const variant = family.variants[value[0] ?? selectedIndex];
-                    if (variant) setChatMode(variant.id as ChatMode);
-                }}
-                className="mt-2 h-6"
-            />
-            <div className="text-muted-foreground flex justify-between text-[10px]">
-                {family.variants.map(variant => (
-                    <span key={variant.id}>{effortLabel(variant.effort) || 'Default'}</span>
-                ))}
-            </div>
+            <p className="text-muted-foreground mt-1.5 text-[10px]">
+                Higher effort thinks longer before answering.
+            </p>
         </div>
     );
 };
@@ -160,7 +154,7 @@ const ModelFamilyList = ({
     families: GatewayModelFamily[];
     chatMode: ChatMode;
     setChatMode: (chatMode: ChatMode) => void;
-    onSelect?: () => void;
+    onSelect?: (family: GatewayModelFamily) => void;
 }) => {
     return (
         <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto pr-1">
@@ -174,7 +168,7 @@ const ModelFamilyList = ({
                         key={family.id}
                         onClick={() => {
                             setChatMode(targetId);
-                            onSelect?.();
+                            onSelect?.(family);
                         }}
                         className={cn(
                             'hover:bg-muted flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
@@ -193,6 +187,11 @@ const ModelFamilyList = ({
                         {family.isImage && (
                             <span className="text-muted-foreground shrink-0 text-[10px]">
                                 Image
+                            </span>
+                        )}
+                        {family.variants.length > 1 && (
+                            <span className="text-muted-foreground shrink-0 text-[10px]">
+                                {family.variants.length} levels
                             </span>
                         )}
                     </button>
@@ -219,6 +218,11 @@ export const ChatModeButton = () => {
     const selectedFamily = selectedFamilyForMode(families, chatMode);
     const selectedOption = visibleAdvancedOptions.find(option => option.value === chatMode);
     const selectedLabel = selectedFamily?.label || selectedOption?.label || 'Model';
+    const selectedEffort = selectedFamily?.variants.find(v => v.id === chatMode)?.effort;
+    const effortChip =
+        selectedFamily && selectedFamily.variants.length > 1
+            ? effortLabel(selectedEffort)
+            : undefined;
 
     // /api/models only lists models this plan can use. A saved selection that is
     // not among them (plan changed, model retired) falls back to the first one.
@@ -235,8 +239,13 @@ export const ChatModeButton = () => {
     return (
         <Popover open={isChatModeOpen} onOpenChange={setIsChatModeOpen} modal={false}>
             <PopoverTrigger asChild>
-                <Button variant="secondary" size="xs">
+                <Button variant="secondary" size="xs" className="gap-1.5">
                     {selectedLabel}
+                    {effortChip && (
+                        <span className="bg-background/70 text-muted-foreground rounded px-1 py-px text-[10px] font-medium">
+                            {effortChip}
+                        </span>
+                    )}
                     <IconChevronDown size={14} strokeWidth={2} />
                 </Button>
             </PopoverTrigger>
@@ -309,7 +318,10 @@ export const ChatModeButton = () => {
                         families={families}
                         chatMode={chatMode}
                         setChatMode={setChatMode}
-                        onSelect={() => setIsChatModeOpen(false)}
+                        onSelect={family => {
+                            // Several levels: stay open so the effort can be set too.
+                            if (family.variants.length < 2) setIsChatModeOpen(false);
+                        }}
                     />
                 )}
                 {selectedFamily && !selectedFamily.isImage && (
