@@ -98,6 +98,15 @@ const useThrottled = (value: string, streaming: boolean | undefined, ms = 1000) 
     return streaming ? shown : value;
 };
 
+/** A deck/sheet that cannot be rendered. Asking again is the fix, not hand-editing JSON. */
+const BrokenState = ({ what }: { what: string }) => (
+    <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm">
+        <IconAlertTriangle size={22} strokeWidth={1.5} />
+        <p>This {what} came out malformed.</p>
+        <p className="text-xs">Ask in the chat to regenerate it.</p>
+    </div>
+);
+
 const BuildingState = ({ label }: { label: string }) => (
     <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-sm">
         <IconLoader2 size={20} className="animate-spin" />
@@ -124,29 +133,13 @@ const Toolbar = ({ children }: { children: ReactNode }) => (
     </div>
 );
 
-const SourceEditor = ({
-    page,
-    language,
-    validate,
-}: {
-    page: Page;
-    language: string;
-    validate?: (content: string) => string | null;
-}) => {
+const SourceEditor = ({ page, language }: { page: Page; language: string }) => {
     const updatePageContent = usePageStore(s => s.updatePageContent);
     const [draft, setDraft] = useState(page.content);
-    const [error, setError] = useState<string | null>(null);
-    useEffect(() => {
-        setDraft(page.content);
-        setError(null);
-    }, [page.content]);
+    useEffect(() => setDraft(page.content), [page.content]);
 
     const dirty = draft !== page.content;
-    const save = () => {
-        const problem = validate?.(draft) ?? null;
-        setError(problem);
-        if (!problem) updatePageContent(page.id, draft);
-    };
+    const save = () => updatePageContent(page.id, draft);
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -164,16 +157,9 @@ const SourceEditor = ({
                 className="bg-background min-h-0 flex-1 resize-none p-4 font-mono text-xs leading-relaxed outline-none"
             />
             <div className="border-border flex h-11 shrink-0 items-center gap-2 border-t px-3">
-                {error ? (
-                    <span className="text-destructive flex min-w-0 items-center gap-1.5 text-xs">
-                        <IconAlertTriangle size={14} strokeWidth={2} className="shrink-0" />
-                        <span className="truncate">{error}</span>
-                    </span>
-                ) : (
-                    <span className="text-muted-foreground text-xs">
-                        {dirty ? 'Unsaved changes' : `${language} · saving creates a new version`}
-                    </span>
-                )}
+                <span className="text-muted-foreground text-xs">
+                    {dirty ? 'Unsaved changes' : `${language} · saving creates a new version`}
+                </span>
                 <span className="flex-1" />
                 {dirty && (
                     <>
@@ -374,26 +360,14 @@ const Presenter = ({
     );
 };
 
-const validateDeck = (content: string) =>
-    parseDeck(content) ? null : 'Not a valid deck: expected JSON with a "slides" array.';
-
 const SlidesViewer = memo(({ page, streaming }: ViewerProps) => {
     const deck = useMemo(() => parseDeck(page.content), [page.content]);
-    const [tab, setTab] = useState<Tab>(deck || streaming ? 'preview' : 'source');
     const [presenting, setPresenting] = useState<number | null>(null);
     const listRef = useFollowStream(deck?.slides.length, streaming);
 
     return (
         <div className="flex h-full flex-col">
             <Toolbar>
-                <Segmented
-                    value={tab}
-                    onChange={setTab}
-                    options={[
-                        { value: 'preview', label: 'Slides' },
-                        { value: 'source', label: 'JSON' },
-                    ]}
-                />
                 {deck && (
                     <span className="text-muted-foreground text-xs">
                         {deck.slides.length} slides
@@ -401,16 +375,14 @@ const SlidesViewer = memo(({ page, streaming }: ViewerProps) => {
                 )}
                 <span className="flex-1" />
                 {streaming && <StreamingBadge />}
-                {deck && tab === 'preview' && !streaming && (
+                {deck && !streaming && (
                     <Button size="xs" variant="secondary" onClick={() => setPresenting(0)}>
                         <IconPlayerPlay size={14} strokeWidth={2} />
                         Present
                     </Button>
                 )}
             </Toolbar>
-            {tab === 'source' ? (
-                <SourceEditor page={page} language="Deck JSON" validate={validateDeck} />
-            ) : deck ? (
+            {deck ? (
                 <div ref={listRef} className="bg-tertiary min-h-0 flex-1 overflow-y-auto">
                     <ol className="mx-auto flex max-w-3xl flex-col gap-5 p-5">
                         {deck.slides.map((slide, i) => (
@@ -448,13 +420,7 @@ const SlidesViewer = memo(({ page, streaming }: ViewerProps) => {
             ) : streaming ? (
                 <BuildingState label="Laying out the first slide…" />
             ) : (
-                <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm">
-                    <IconAlertTriangle size={22} strokeWidth={1.5} />
-                    <p>This deck couldn&apos;t be read.</p>
-                    <Button size="xs" variant="secondary" onClick={() => setTab('source')}>
-                        Fix the JSON
-                    </Button>
-                </div>
+                <BrokenState what="deck" />
             )}
             {deck && presenting !== null && (
                 <Presenter deck={deck} start={presenting} onClose={() => setPresenting(null)} />
@@ -528,12 +494,8 @@ const DocViewer = memo(({ page, streaming }: ViewerProps) => {
 });
 DocViewer.displayName = 'DocViewer';
 
-const validateWorkbook = (content: string) =>
-    parseWorkbook(content) ? null : 'Not a valid sheet: expected JSON with "sheets", or CSV.';
-
 const SheetViewer = memo(({ page, streaming }: ViewerProps) => {
     const book = useMemo(() => parseWorkbook(page.content), [page.content]);
-    const [tab, setTab] = useState<Tab>(book || streaming ? 'preview' : 'source');
     const [active, setActive] = useState(0);
     const gridRef = useFollowStream(page.content, streaming);
     const sheet = book?.sheets[Math.min(active, book.sheets.length - 1)];
@@ -541,14 +503,6 @@ const SheetViewer = memo(({ page, streaming }: ViewerProps) => {
     return (
         <div className="flex h-full flex-col">
             <Toolbar>
-                <Segmented
-                    value={tab}
-                    onChange={setTab}
-                    options={[
-                        { value: 'preview', label: 'Sheet' },
-                        { value: 'source', label: 'Data' },
-                    ]}
-                />
                 <span className="flex-1" />
                 {streaming && <StreamingBadge />}
                 {sheet && (
@@ -558,13 +512,7 @@ const SheetViewer = memo(({ page, streaming }: ViewerProps) => {
                     </span>
                 )}
             </Toolbar>
-            {tab === 'source' ? (
-                streaming ? (
-                    <LiveSource content={page.content} />
-                ) : (
-                    <SourceEditor page={page} language="Sheet JSON" validate={validateWorkbook} />
-                )
-            ) : sheet ? (
+            {sheet ? (
                 <>
                     <div ref={gridRef} className="min-h-0 flex-1 overflow-auto">
                         <table className="min-w-full border-separate border-spacing-0 text-sm">
@@ -641,13 +589,7 @@ const SheetViewer = memo(({ page, streaming }: ViewerProps) => {
             ) : streaming ? (
                 <BuildingState label="Waiting for the first rows…" />
             ) : (
-                <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm">
-                    <IconAlertTriangle size={22} strokeWidth={1.5} />
-                    <p>This sheet couldn&apos;t be read.</p>
-                    <Button size="xs" variant="secondary" onClick={() => setTab('source')}>
-                        Fix the data
-                    </Button>
-                </div>
+                <BrokenState what="sheet" />
             )}
         </div>
     );

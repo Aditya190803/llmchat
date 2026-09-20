@@ -56,11 +56,10 @@ const relativeTime = (date: Date) => {
     return new Date(date).toLocaleDateString();
 };
 
-const SOURCE_LABEL: Record<Page['type'], string> = {
+/** Formats whose source is worth copying; decks and sheets are their file. */
+const SOURCE_LABEL: Partial<Record<Page['type'], string>> = {
     html: 'HTML',
-    slides: 'deck JSON',
     doc: 'Markdown',
-    sheet: 'sheet JSON',
 };
 
 const copyText = async (text: string, what: string) => {
@@ -318,10 +317,14 @@ const MoreMenu = ({ page }: { page: Page }) => {
                         Open in new tab
                     </DropdownMenuItem>
                 )}
-                <DropdownMenuItem onSelect={() => copyText(page.content, SOURCE_LABEL[page.type])}>
-                    <IconCopy size={14} strokeWidth={2} />
-                    Copy {SOURCE_LABEL[page.type]}
-                </DropdownMenuItem>
+                {SOURCE_LABEL[page.type] && (
+                    <DropdownMenuItem
+                        onSelect={() => copyText(page.content, SOURCE_LABEL[page.type]!)}
+                    >
+                        <IconCopy size={14} strokeWidth={2} />
+                        Copy {SOURCE_LABEL[page.type]}
+                    </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onSelect={() => downloadPage(page)}>
                     <IconDownload size={14} strokeWidth={2} />
                     {downloadLabel(page)}
