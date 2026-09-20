@@ -1,13 +1,11 @@
+import { FREE_MODEL_IDS, isSelectableModel } from '@repo/shared/config';
 import { getModelFromChatMode } from '@repo/ai/models';
 import { prisma } from '@repo/prisma';
 import type { SessionUser } from './auth';
 
 export const FREE_DAILY_CREDITS = 10;
 export const PRO_DAILY_CREDITS = 200;
-export const FREE_DEFAULT_MODELS = new Set([
-    'gemini-2.5-flash-lite',
-    'gpt-oss-120b-medium',
-]);
+export const FREE_DEFAULT_MODELS = new Set(FREE_MODEL_IDS);
 
 export const todayStr = () => new Date().toISOString().split('T')[0];
 
@@ -100,6 +98,9 @@ export async function spendVisitorCredits(ip: string, cost: number): Promise<boo
 
 export async function canUseMode(user: SessionUser | null, mode: string): Promise<boolean> {
     const gatewayModel = getModelFromChatMode(mode);
+    // Speech, classifiers and retired generations are never selectable, whatever
+    // a stale policy row says.
+    if (!isSelectableModel(gatewayModel)) return false;
     const policy = await prisma.modelPolicy.findUnique({ where: { mode: gatewayModel } });
     if (!policy) {
         return user?.isPro || user?.isAdmin || FREE_DEFAULT_MODELS.has(gatewayModel);

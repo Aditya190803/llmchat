@@ -4,6 +4,7 @@ import { ChatMode } from '@repo/shared/config';
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth';
 import { FREE_DEFAULT_MODELS, getQuota, getVisitorQuota } from '@/lib/tiers';
+import { defaultModelFor } from '@repo/shared/config';
 
 const getVisitorIp = (request: Request) =>
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -35,6 +36,7 @@ export async function GET(request: Request) {
         isPro: quota.isPro,
         isAdmin: session?.isAdmin ?? false,
         allowedModes,
+        defaultModel: defaultModelFor(isPrivileged),
         isAuthenticated: !!session,
         isFetched: true,
     });

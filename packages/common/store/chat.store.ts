@@ -98,6 +98,7 @@ type State = {
         isPro: boolean;
         isAdmin: boolean;
         allowedModes: string[];
+        defaultModel?: string;
         isFetched: boolean;
         loggedOut: boolean;
     };
@@ -574,6 +575,7 @@ export const useChatStore = create(
                         isPro: !!data.isPro,
                         isAdmin: !!data.isAdmin,
                         allowedModes: data.allowedModes || [],
+                        defaultModel: data.defaultModel,
                         isFetched: true,
                         loggedOut: false,
                     },

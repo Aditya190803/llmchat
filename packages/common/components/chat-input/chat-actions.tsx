@@ -3,6 +3,7 @@ import { DotSpinner } from '@repo/common/components';
 import { useChatStore } from '@repo/common/store';
 import {
     CHAT_MODE_CREDIT_COSTS,
+    FREE_MODEL_IDS,
     ChatMode,
     ChatModeConfig,
     effortLabel,
@@ -59,8 +60,6 @@ export const chatOptions = [
         creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.Pro],
     },
 ];
-
-const FREE_MODEL_IDS = ['gemini-2.5-flash-lite', 'gpt-oss-120b-medium'];
 
 // Starts empty so the picker shows "Loading models…" instead of flashing models
 // the plan can't use. If the gateway is unreachable, fall back to free models.
@@ -250,11 +249,16 @@ export const ChatModeButton = () => {
         families.length > 0 && creditLimit.isFetched && !selectedFamily && !selectedOption;
     useEffect(() => {
         if (!isStale) return;
+        // The server says which model this plan should start on.
         const preferred =
-            families.find(family => family.variants.some(v => FREE_MODEL_IDS.includes(v.id))) ??
-            families[0];
-        setChatMode(defaultVariant(preferred).id as ChatMode);
-    }, [isStale, families, setChatMode]);
+            families.find(family =>
+                family.variants.some(variant => variant.id === creditLimit.defaultModel)
+            ) ?? families[0];
+        const variant =
+            preferred.variants.find(v => v.id === creditLimit.defaultModel) ??
+            defaultVariant(preferred);
+        setChatMode(variant.id as ChatMode);
+    }, [isStale, families, creditLimit.defaultModel, setChatMode]);
 
     // Start each visit with the full list rather than a stale search.
     useEffect(() => {
