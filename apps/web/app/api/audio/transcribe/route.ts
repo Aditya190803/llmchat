@@ -8,39 +8,49 @@ import { getSessionUser } from '@/lib/auth';
  * falls back to the browser's own speech recognition.
  */
 const BASE = process.env.AI_GATEWAY_BASE_URL || 'https://ai-gateway.adityamer.dev/v1';
-const MODEL = process.env.AI_GATEWAY_TRANSCRIBE_MODEL || 'whisper-1';
+const CONFIGURED_MODEL = process.env.AI_GATEWAY_TRANSCRIBE_MODEL;
 const MAX_BYTES = 25 * 1024 * 1024;
 
-let cachedAvailability: { at: number; enabled: boolean } | null = null;
+let cachedModel: { at: number; model: string | null } | null = null;
 
-/** True only when the gateway actually serves the configured model. */
-async function isModelLive(key: string) {
-    if (cachedAvailability && Date.now() - cachedAvailability.at < 60_000) {
-        return cachedAvailability.enabled;
-    }
-    let enabled = false;
+/**
+ * The transcription model to use: whatever the operator configured, else the
+ * best Whisper the gateway currently serves (turbo first, it is much faster).
+ */
+async function resolveModel(key: string): Promise<string | null> {
+    if (CONFIGURED_MODEL) return CONFIGURED_MODEL;
+    if (cachedModel && Date.now() - cachedModel.at < 60_000) return cachedModel.model;
+
+    let model: string | null = null;
     try {
         const response = await fetch(`${BASE}/models`, {
             headers: { authorization: `Bearer ${key}` },
             cache: 'no-store',
         });
         const data = await response.json().catch(() => ({}));
-        enabled = !!(data.data || []).some((model: { id?: string }) => model.id === MODEL);
+        const ids: string[] = (data.data || [])
+            .map((entry: { id?: string }) => entry.id)
+            .filter((id: unknown): id is string => typeof id === 'string');
+        const whispers = ids.filter(id => /whisper/i.test(id));
+        model = whispers.find(id => /turbo/i.test(id)) ?? whispers[0] ?? null;
     } catch {
-        enabled = false;
+        model = null;
     }
-    cachedAvailability = { at: Date.now(), enabled };
-    return enabled;
+    cachedModel = { at: Date.now(), model };
+    return model;
 }
 
 export async function GET() {
-    // The composer asks whether server transcription is worth trying; when the
-    // model is not on the gateway it uses the browser engine instead.
+    // The composer asks whether server transcription is worth trying; without a
+    // model on the gateway it uses the browser engine instead.
     const key = process.env.AI_GATEWAY_API_KEY;
-    return NextResponse.json({
-        enabled: key ? await isModelLive(key) : false,
-        model: MODEL,
-    });
+    // POST needs an account, so don't offer it to visitors: they keep the
+    // browser engine rather than recording only to be turned away.
+    const [user, model] = await Promise.all([
+        getSessionUser(),
+        key ? resolveModel(key) : Promise.resolve(null),
+    ]);
+    return NextResponse.json({ enabled: !!model && !!user, model });
 }
 
 export async function POST(request: NextRequest) {
@@ -51,6 +61,14 @@ export async function POST(request: NextRequest) {
     // Transcription costs money upstream, so it needs an account.
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: 'Sign in to use voice input' }, { status: 401 });
+
+    const model = await resolveModel(key);
+    if (!model) {
+        return NextResponse.json(
+            { error: 'No transcription model on the gateway' },
+            { status: 503 }
+        );
+    }
 
     const form = await request.formData().catch(() => null);
     const file = form?.get('file');
@@ -63,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     const upstream = new FormData();
     upstream.append('file', file, (file as File).name || 'audio.webm');
-    upstream.append('model', MODEL);
+    upstream.append('model', model);
     const language = form?.get('language');
     if (typeof language === 'string' && language) upstream.append('language', language.slice(0, 8));
 
