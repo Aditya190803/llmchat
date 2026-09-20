@@ -1,3 +1,4 @@
+export * from './brand';
 export * from './chat-mode';
 export * from './model-catalog';
 export * from './model-tiers';

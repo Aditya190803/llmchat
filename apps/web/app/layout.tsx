@@ -1,4 +1,5 @@
 import { RootLayout } from '@repo/common/components';
+import { APP_DESCRIPTION, APP_NAME, APP_TAGLINE, APP_URL } from '@repo/shared/config';
 import { ReactQueryProvider, RootProvider } from '@repo/common/context';
 import { TooltipProvider, cn } from '@repo/ui';
 import { GeistMono } from 'geist/font/mono';
@@ -15,38 +16,22 @@ const bricolage = Bricolage_Grotesque({
 import './globals.css';
 
 export const metadata: Metadata = {
-    title: 'llmchat.co - Go Deeper with AI-Powered Research & Agentic Workflows',
-    description:
-        'Experience deep, AI-powered research with agentic workflows and a wide variety of models for advanced productivity.',
-    keywords: 'AI chat, LLM, language models, privacy, minimal UI, ollama, chatgpt',
-    authors: [{ name: 'Trendy design', url: 'https://trendy.design' }],
-    creator: 'Trendy design',
-    publisher: 'Trendy design',
+    title: `${APP_NAME} — ${APP_TAGLINE}`,
+    description: APP_DESCRIPTION,
+    keywords: 'AI chat, documents, slides, spreadsheets, web search, language models',
+    applicationName: APP_NAME,
     openGraph: {
-        title: 'llmchat.co - Go Deeper with AI-Powered Research & Agentic Workflows',
-        siteName: 'llmchat.co',
-        description:
-            'Experience deep, AI-powered research with agentic workflows and a wide variety of models for advanced productivity.',
-        url: 'https://llmchat.co',
+        title: `${APP_NAME} — ${APP_TAGLINE}`,
+        siteName: APP_NAME,
+        description: APP_DESCRIPTION,
+        url: APP_URL,
         type: 'website',
         locale: 'en_US',
-        images: [
-            {
-                url: 'https://llmchat.co/og-image.jpg',
-                width: 1200,
-                height: 630,
-                alt: 'LLMChat Preview',
-            },
-        ],
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'llmchat.co - Go Deeper with AI-Powered Research & Agentic Workflows',
-        site: 'llmchat.co',
-        creator: '@llmchat_co',
-        description:
-            'Experience deep, AI-powered research with agentic workflows and a wide variety of models for advanced productivity.',
-        images: ['https://llmchat.co/twitter-image.jpg'],
+        title: `${APP_NAME} — ${APP_TAGLINE}`,
+        description: APP_DESCRIPTION,
     },
     robots: {
         index: true,
@@ -60,7 +45,7 @@ export const metadata: Metadata = {
         },
     },
     alternates: {
-        canonical: 'https://llmchat.co',
+        canonical: APP_URL,
     },
 };
 
@@ -103,19 +88,19 @@ export default function ParentLayout({
             <body>
                 {/* <PostHogProvider> */}
                 <RootProvider>
-                        {/* <ThemeProvider
+                    {/* <ThemeProvider
             attribute="class"
             defaultTheme="light"
             enableSystem
             disableTransitionOnChange
           > */}
-                        <TooltipProvider>
-                            <ReactQueryProvider>
-                                <RootLayout>{children}</RootLayout>
-                            </ReactQueryProvider>
-                        </TooltipProvider>
-                        {/* </ThemeProvider> */}
-                    </RootProvider>
+                    <TooltipProvider>
+                        <ReactQueryProvider>
+                            <RootLayout>{children}</RootLayout>
+                        </ReactQueryProvider>
+                    </TooltipProvider>
+                    {/* </ThemeProvider> */}
+                </RootProvider>
                 {/* </PostHogProvider> */}
             </body>
         </html>
