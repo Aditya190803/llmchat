@@ -229,7 +229,7 @@ export const ChatModeButton = () => {
             ? creditLimit.loggedOut
                 ? (ChatModeConfig[mode]?.isAuthRequired ?? false) === false
                 : true
-            : creditLimit.allowedModes.length === 0 || creditLimit.allowedModes.includes(mode);
+            : creditLimit.allowedModes.includes(mode);
     const visibleAdvancedOptions = chatOptions.filter(option => canShowMode(option.value));
     const selectedFamily = selectedFamilyForMode(families, chatMode);
     const selectedOption = visibleAdvancedOptions.find(option => option.value === chatMode);
@@ -399,7 +399,7 @@ export const ChatModeOptions = ({
             ? creditLimit.loggedOut
                 ? (ChatModeConfig[mode]?.isAuthRequired ?? false) === false
                 : true
-            : creditLimit.allowedModes.length === 0 || creditLimit.allowedModes.includes(mode);
+            : creditLimit.allowedModes.includes(mode);
     const visibleAdvancedOptions = chatOptions.filter(option => canShow(option.value));
     // Null until quota loads: hide the whole group instead of flashing all modes.
     // After load: only show modes the plan allows (server is source of truth).

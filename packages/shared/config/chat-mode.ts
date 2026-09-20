@@ -1,17 +1,10 @@
-import { getGatewayModelCreditCost } from './model-catalog';
+import { getGatewayModelCreditCost, getGatewayModelDisplayName } from './model-catalog';
+/**
+ * Named modes are workflows, not models. Everything else the user can pick is a
+ * gateway model id, passed through as-is.
+ */
 export enum ChatMode {
-    Pro = 'pro',
     Deep = 'deep',
-    O4_Mini = 'o4-mini',
-    GPT_4_1 = 'gpt-4.1',
-    GPT_4_1_Mini = 'gpt-4.1-mini',
-    GPT_4_1_Nano = 'gpt-4.1-nano',
-    GPT_4o_Mini = 'gpt-4o-mini',
-    LLAMA_4_SCOUT = 'llama-4-scout',
-    GEMINI_2_FLASH = 'gemini-flash-2.0',
-    DEEPSEEK_R1 = 'deepseek-r1',
-    CLAUDE_3_5_SONNET = 'claude-3-5-sonnet',
-    CLAUDE_3_7_SONNET = 'claude-3-7-sonnet',
 }
 
 export const ChatModeConfig: Record<
@@ -30,128 +23,18 @@ export const ChatModeConfig: Record<
         retry: false,
         isAuthRequired: true,
     },
-    [ChatMode.Pro]: {
-        webSearch: false,
-        imageUpload: false,
-        retry: false,
-        isAuthRequired: true,
-    },
-    [ChatMode.GPT_4_1]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isNew: true,
-        isAuthRequired: true,
-    },
-    [ChatMode.GPT_4_1_Mini]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isNew: true,
-        isAuthRequired: true,
-    },
-    [ChatMode.GPT_4_1_Nano]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isNew: true,
-        isAuthRequired: false,
-    },
-    [ChatMode.LLAMA_4_SCOUT]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isNew: true,
-        isAuthRequired: false,
-    },
-    [ChatMode.O4_Mini]: {
-        webSearch: true,
-        imageUpload: false,
-        retry: true,
-        isNew: true,
-        isAuthRequired: true,
-    },
-    [ChatMode.GPT_4o_Mini]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isAuthRequired: false,
-    },
-    [ChatMode.CLAUDE_3_5_SONNET]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isAuthRequired: true,
-    },
-    [ChatMode.CLAUDE_3_7_SONNET]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isAuthRequired: true,
-    },
-    [ChatMode.GEMINI_2_FLASH]: {
-        webSearch: true,
-        imageUpload: true,
-        retry: true,
-        isAuthRequired: false,
-    },
-    [ChatMode.DEEPSEEK_R1]: {
-        webSearch: true,
-        imageUpload: false,
-        retry: true,
-        isAuthRequired: true,
-    },
 };
 
-export const CHAT_MODE_CREDIT_COSTS = {
+export const CHAT_MODE_CREDIT_COSTS: Record<string, number> = {
     [ChatMode.Deep]: 10,
-    [ChatMode.Pro]: 5,
-    [ChatMode.LLAMA_4_SCOUT]: 1,
-    [ChatMode.GPT_4o_Mini]: 1,
-    [ChatMode.GPT_4_1]: 5,
-    [ChatMode.GPT_4_1_Mini]: 2,
-    [ChatMode.GPT_4_1_Nano]: 1,
-    [ChatMode.O4_Mini]: 5,
-    [ChatMode.CLAUDE_3_5_SONNET]: 5,
-    [ChatMode.CLAUDE_3_7_SONNET]: 5,
-    [ChatMode.GEMINI_2_FLASH]: 1,
-    [ChatMode.DEEPSEEK_R1]: 5,
 };
 
 /**
- * Credits for a message. Legacy chat modes keep their fixed price; live gateway
- * models are priced by model class and the thinking effort they were set to.
+ * Credits for a message: a fixed price for a named mode, otherwise priced by
+ * model class and the thinking effort it was set to.
  */
 export const getCreditCost = (mode: string): number =>
-    CHAT_MODE_CREDIT_COSTS[mode as ChatMode] ?? getGatewayModelCreditCost(mode);
+    CHAT_MODE_CREDIT_COSTS[mode] ?? getGatewayModelCreditCost(mode);
 
-export const getChatModeName = (mode: ChatMode | string) => {
-    switch (mode) {
-        case ChatMode.Deep:
-            return 'Deep Research';
-        case ChatMode.Pro:
-            return 'Pro Search';
-        case ChatMode.GPT_4_1:
-            return 'Claude Sonnet 4.6';
-        case ChatMode.GPT_4_1_Mini:
-            return 'Gemini 2.5 Flash Lite';
-        case ChatMode.GPT_4_1_Nano:
-            return 'Gemini 2.5 Flash Lite';
-        case ChatMode.LLAMA_4_SCOUT:
-            return 'GPT OSS 120B';
-        case ChatMode.GPT_4o_Mini:
-            return 'Gemini 2.5 Flash Lite';
-        case ChatMode.CLAUDE_3_5_SONNET:
-            return 'Claude Sonnet 4.6';
-        case ChatMode.CLAUDE_3_7_SONNET:
-            return 'Claude Sonnet 4.6';
-        case ChatMode.O4_Mini:
-            return 'GPT OSS 120B';
-        case ChatMode.DEEPSEEK_R1:
-            return 'Claude Opus 4.6 Thinking';
-        case ChatMode.GEMINI_2_FLASH:
-            return 'Gemini 2.5 Flash Lite';
-        default:
-            return String(mode);
-    }
-};
+export const getChatModeName = (mode: ChatMode | string) =>
+    mode === ChatMode.Deep ? 'Deep Research' : getGatewayModelDisplayName(String(mode));

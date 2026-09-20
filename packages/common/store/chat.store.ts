@@ -1,7 +1,7 @@
 'use client';
 
 import { Model, models } from '@repo/ai/models';
-import { ChatMode } from '@repo/shared/config';
+import { ChatMode, DEFAULT_MODEL_FREE } from '@repo/shared/config';
 import { MessageGroup, Page, Thread, ThreadItem } from '@repo/shared/types';
 import Dexie, { Table } from 'dexie';
 import { nanoid } from 'nanoid';
@@ -52,9 +52,9 @@ const loadInitialData = async () => {
               model: models[0].id,
               useWebSearch: false,
               showSuggestions: true,
-              chatMode: ChatMode.GEMINI_2_FLASH,
+              chatMode: DEFAULT_MODEL_FREE as ChatMode,
           };
-    const chatMode = config.chatMode || ChatMode.GEMINI_2_FLASH;
+    const chatMode = config.chatMode || (DEFAULT_MODEL_FREE as ChatMode);
     const useWebSearch = typeof config.useWebSearch === 'boolean' ? config.useWebSearch : false;
     const customInstructions = config.customInstructions || '';
 
@@ -458,7 +458,7 @@ export const useChatStore = create(
         editor: undefined,
         context: '',
         threads: [],
-        chatMode: ChatMode.GEMINI_2_FLASH,
+        chatMode: DEFAULT_MODEL_FREE as ChatMode,
         threadItems: [],
         useWebSearch: false,
         customInstructions: '',
@@ -846,7 +846,7 @@ export const useChatStore = create(
                         id: threadItem.id,
                         threadId,
                         query: threadItem.query || '',
-                        mode: threadItem.mode || ChatMode.GEMINI_2_FLASH,
+                        mode: threadItem.mode || (DEFAULT_MODEL_FREE as ChatMode),
                         createdAt: new Date(),
                         updatedAt: new Date(),
                         ...threadItem,
