@@ -453,42 +453,26 @@ const docComponents = {
 };
 
 const DocViewer = memo(({ page, streaming }: ViewerProps) => {
-    const [tab, setTab] = useState<Tab>('preview');
     const pageRef = useFollowStream(page.content, streaming);
+    const fileKind = page.type === 'md' ? 'a Markdown file' : 'a Word file';
     return (
         <div className="flex h-full flex-col">
             <Toolbar>
-                <Segmented
-                    value={tab}
-                    onChange={setTab}
-                    options={[
-                        { value: 'preview', label: 'Document' },
-                        { value: 'source', label: streaming ? 'Markdown (live)' : 'Markdown' },
-                    ]}
-                />
                 <span className="flex-1" />
                 {streaming ? (
                     <StreamingBadge />
                 ) : (
-                    <span className="text-muted-foreground text-xs">Downloads as a Word file</span>
+                    <span className="text-muted-foreground text-xs">Downloads as {fileKind}</span>
                 )}
             </Toolbar>
-            {tab === 'source' ? (
-                streaming ? (
-                    <LiveSource content={page.content} />
-                ) : (
-                    <SourceEditor page={page} language="Markdown" />
-                )
-            ) : (
-                <div ref={pageRef} className="bg-tertiary min-h-0 flex-1 overflow-y-auto p-6">
-                    {/* Letter-width sheet with ~1in margins, like the exported file. */}
-                    <article className="bg-background border-border shadow-subtle-xs prose prose-sm prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-lg prose-table:text-sm prose-th:bg-tertiary prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2 prose-table:border prose-th:border prose-td:border mx-auto min-h-full max-w-[816px] rounded-md border px-[72px] py-16">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={docComponents}>
-                            {withBreaks(page.content)}
-                        </ReactMarkdown>
-                    </article>
-                </div>
-            )}
+            <div ref={pageRef} className="bg-tertiary min-h-0 flex-1 overflow-y-auto p-6">
+                {/* Letter-width sheet with ~1in margins, like the exported file. */}
+                <article className="bg-background border-border shadow-subtle-xs prose prose-sm prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-lg prose-table:text-sm prose-th:bg-tertiary prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2 prose-table:border prose-th:border prose-td:border mx-auto min-h-full max-w-[816px] rounded-md border px-[72px] py-16">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={docComponents}>
+                        {withBreaks(page.content)}
+                    </ReactMarkdown>
+                </article>
+            </div>
         </div>
     );
 });
@@ -598,7 +582,8 @@ SheetViewer.displayName = 'SheetViewer';
 
 export function PageViewer({ page, streaming }: ViewerProps) {
     if (page.type === 'slides') return <SlidesViewer page={page} streaming={streaming} />;
-    if (page.type === 'doc') return <DocViewer page={page} streaming={streaming} />;
+    if (page.type === 'doc' || page.type === 'md')
+        return <DocViewer page={page} streaming={streaming} />;
     if (page.type === 'sheet') return <SheetViewer page={page} streaming={streaming} />;
     return <HtmlViewer page={page} streaming={streaming} />;
 }

@@ -7,14 +7,14 @@ import { immer } from 'zustand/middleware/immer';
 import { getThreadDb } from './chat.store';
 
 /**
- * Page fences in model output:  ```page:Title:html|slides|doc|sheet
+ * Page fences in model output:  ```page:Title:html|slides|doc|sheet|md
  * The closing fence must sit on its own line so inline backticks in HTML
  * don't end the page early.
  */
 const PAGE_FENCE_RE =
-    /```page:([^:\n]+):(html|slides|doc|sheet)[^\n]*\n([\s\S]*?)\n```[ \t]*(?=\n|$)/g;
+    /```page:([^:\n]+):(html|slides|doc|sheet|md)[^\n]*\n([\s\S]*?)\n```[ \t]*(?=\n|$)/g;
 // A fence still streaming at the end of the text. The header itself may be partial.
-const OPEN_FENCE_RE = /```page:([^:\n]*)(?::(html|slides|doc|sheet))?[^\n]*(?:\n([\s\S]*))?$/;
+const OPEN_FENCE_RE = /```page:([^:\n]*)(?::(html|slides|doc|sheet|md))?[^\n]*(?:\n([\s\S]*))?$/;
 // "```p", "```pa", "```pag": a page fence that has only just started streaming.
 const PARTIAL_OPENER_RE = /```p(?:a(?:g(?:e)?)?)?$/;
 
@@ -60,8 +60,8 @@ export function getStreamingPage(markdown: string): StreamingPage | null {
     };
 }
 
-const isPageType = (t: unknown): t is PageType =>
-    t === 'html' || t === 'slides' || t === 'doc' || t === 'sheet';
+const PAGE_TYPES: PageType[] = ['html', 'slides', 'doc', 'sheet', 'md'];
+const isPageType = (t: unknown): t is PageType => PAGE_TYPES.includes(t as PageType);
 
 const sortNewestFirst = (pages: Page[]) =>
     [...pages].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));

@@ -14,6 +14,7 @@ Emit a Page ONLY when the user asks for a file or page. Pick the type from what 
 asked for, and match the format they named exactly:
 - Excel, spreadsheet, .xlsx, sheet, CSV, workbook, "a table I can download"  →  "sheet"
 - Word, .docx, "a doc", document, letter, resume, report "as a file"  →  "doc"
+- Markdown, .md, a README, or "a markdown page/doc"  →  "md"
 - PowerPoint, .pptx, presentation, slides, deck  →  "slides"
 - Web page, landing page, site, HTML, dashboard, interactive tool or game  →  "html"
 Follow-ups like "make it a doc", "give me excel", "as slides" or "make a doc for this" mean:
@@ -54,6 +55,14 @@ Intro paragraph...
 - Numbers as JSON numbers (not strings) so Excel can calculate. Formulas as strings starting
   with "=" using A1 references (row 1 is the header, data starts at row 2).
 - Several sheets when the data naturally splits. Put long text in cells as plain strings.
+
+### Markdown file
+\`\`\`page:Short Title:md
+# Title
+Body in GitHub-flavored markdown...
+\`\`\`
+- Same content rules as a Word document; it downloads as a .md file instead.
+- Use "md" only when the user asks for markdown or a README by name.
 
 ### Slide deck
 \`\`\`page:Short Title:slides

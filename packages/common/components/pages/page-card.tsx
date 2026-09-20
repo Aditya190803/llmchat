@@ -8,6 +8,7 @@ import {
     IconBrowser,
     IconFileTypeDocx,
     IconFileTypeXls,
+    IconMarkdown,
     IconPresentation,
 } from '@tabler/icons-react';
 import { memo, useMemo } from 'react';
@@ -19,6 +20,7 @@ const TYPE_META: Record<PageType, { label: string; Icon: typeof IconBrowser; bui
     slides: { label: 'Slide deck', Icon: IconPresentation, building: 'slides' },
     doc: { label: 'Word document', Icon: IconFileTypeDocx, building: 'document' },
     sheet: { label: 'Excel workbook', Icon: IconFileTypeXls, building: 'spreadsheet' },
+    md: { label: 'Markdown file', Icon: IconMarkdown, building: 'markdown' },
 };
 
 export const pageTypeLabel = (type: PageType) => TYPE_META[type].label;
@@ -34,6 +36,7 @@ const describe = (page: Page) => {
         return n ? `${n} slides · PowerPoint` : 'Slide deck';
     }
     if (page.type === 'doc') return 'Word document · .docx';
+    if (page.type === 'md') return 'Markdown · .md';
     if (page.type === 'sheet') {
         const book = parseWorkbook(page.content);
         const rows = book?.sheets.reduce((n, s) => n + s.rows.length, 0) ?? 0;

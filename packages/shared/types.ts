@@ -95,8 +95,8 @@ export type MessageGroup = {
     assistantMessages: ThreadItem[];
 };
 
-/** HTML pages (publishable); slides, docs and sheets download as .pptx/.docx/.xlsx. */
-export type PageType = 'html' | 'slides' | 'doc' | 'sheet';
+/** HTML pages (publishable); the rest download as .pptx/.docx/.xlsx/.md. */
+export type PageType = 'html' | 'slides' | 'doc' | 'sheet' | 'md';
 
 export type PageVersion = {
     id: string;
@@ -111,7 +111,7 @@ export type Page = {
     threadItemId?: string;
     title: string;
     type: PageType;
-    /** HTML: full document. Slides/sheets: JSON. Docs: markdown. */
+    /** HTML: full document. Slides/sheets: JSON. Docs and md: markdown. */
     content: string;
     versions: PageVersion[];
     activeVersionId?: string;

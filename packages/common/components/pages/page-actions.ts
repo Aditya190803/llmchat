@@ -17,6 +17,7 @@ export const FILE_EXT: Record<Page['type'], string> = {
     slides: 'pptx',
     doc: 'docx',
     sheet: 'xlsx',
+    md: 'md',
 };
 
 export const downloadLabel = (page: Page) => `Download .${FILE_EXT[page.type]}`;
@@ -50,6 +51,10 @@ export async function downloadPage(page: Page) {
     if (page.type === 'doc') {
         const { downloadMarkdownAsDocx } = await import('./docx-export');
         await downloadMarkdownAsDocx(page.content, page.title, `${name}.docx`);
+        return;
+    }
+    if (page.type === 'md') {
+        saveBlob(new Blob([page.content], { type: 'text/markdown;charset=utf-8' }), `${name}.md`);
         return;
     }
     saveBlob(new Blob([page.content], { type: 'text/html;charset=utf-8' }), `${name}.html`);

@@ -59,7 +59,8 @@ const relativeTime = (date: Date) => {
 /** Formats whose source is worth copying; decks and sheets are their file. */
 const SOURCE_LABEL: Partial<Record<Page['type'], string>> = {
     html: 'HTML',
-    doc: 'Markdown',
+    doc: 'text',
+    md: 'Markdown',
 };
 
 const copyText = async (text: string, what: string) => {
