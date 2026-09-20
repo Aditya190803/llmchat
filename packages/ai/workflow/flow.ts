@@ -91,6 +91,8 @@ export type WorkflowContextSchema = {
         }[];
     }[];
     webSearch: boolean;
+    /** Query chosen when the model decided this message needs the web. */
+    searchQuery?: string;
     queries: string[];
     summaries: string[];
     gl?: Geo;

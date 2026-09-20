@@ -15,13 +15,7 @@ import { useAgentStream } from '../../hooks/agent-provider';
 import { useChatEditor } from '../../hooks/use-editor';
 import { useChatStore } from '../../store';
 import { ExamplePrompts } from '../exmaple-prompts';
-import {
-    ChatModeButton,
-    EffortButton,
-    GeneratingStatus,
-    SendStopButton,
-    WebSearchButton,
-} from './chat-actions';
+import { ChatModeButton, EffortButton, GeneratingStatus, SendStopButton } from './chat-actions';
 import { VoiceInputButton } from './voice-input';
 import { ChatEditor } from './chat-editor';
 import { ImageUpload } from './image-upload';
@@ -154,7 +148,6 @@ export const ChatInput = ({
                                             <Flex gap="xs" items="center" className="shrink-0">
                                                 <ChatModeButton />
                                                 {/* <AttachmentButton /> */}
-                                                <WebSearchButton />
                                                 {/* <ToolsMenu /> */}
                                                 <ImageUpload
                                                     id="image-attachment"

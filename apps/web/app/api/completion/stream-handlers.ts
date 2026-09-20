@@ -1,14 +1,10 @@
 import { runWorkflow } from '@repo/ai/workflow';
 import { ChatMode, getCreditCost } from '@repo/shared/config';
-import { containsUrl } from '@repo/shared/utils';
 import { logger } from '@repo/shared/logger';
 import { EVENT_TYPES, posthog } from '@repo/shared/posthog';
 import { Geo } from '@vercel/functions';
 import { CompletionRequestType, StreamController } from './types';
 import { sanitizePayloadForJSON } from './utils';
-
-// A pasted link is a web request even when the toggle is off.
-const needsWeb = (data: CompletionRequestType) => data.webSearch || containsUrl(data.prompt);
 
 export function sendMessage(
     controller: StreamController,
@@ -78,7 +74,7 @@ export async function executeStream({
             threadItemId: data.threadItemId,
             messages: data.messages,
             customInstructions: data.customInstructions,
-            webSearch: needsWeb(data),
+            webSearch: data.webSearch || false,
             config: {
                 maxIterations: data.maxIterations || 3,
                 signal,
@@ -98,7 +94,7 @@ export async function executeStream({
                 query: data.prompt,
                 mode: data.mode,
                 model: data.mode,
-                webSearch: needsWeb(data),
+                webSearch: data.webSearch || false,
                 showSuggestions: data.showSuggestions || false,
                 [event]: payload,
             });
@@ -124,7 +120,7 @@ export async function executeStream({
                     userId,
                     query: data.prompt,
                     mode: data.mode,
-                    webSearch: needsWeb(data),
+                    webSearch: data.webSearch || false,
                     showSuggestions: data.showSuggestions || false,
                     threadId: data.threadId,
                     threadItemId: data.threadItemId,

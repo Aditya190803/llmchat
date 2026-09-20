@@ -17,8 +17,3 @@ export const getHost = (url: string) => {
         return undefined;
     }
 };
-
-/** A pasted link means the answer needs the web, whether or not search is on. */
-export const URL_IN_TEXT_RE = /https?:\/\/[^\s<>()\[\]"']+/i;
-
-export const containsUrl = (text?: string) => !!text && URL_IN_TEXT_RE.test(text);

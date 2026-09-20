@@ -362,36 +362,6 @@ export const ChatModeButton = () => {
     );
 };
 
-export const WebSearchButton = () => {
-    const useWebSearch = useChatStore(state => state.useWebSearch);
-    const setUseWebSearch = useChatStore(state => state.setUseWebSearch);
-    const chatMode = useChatStore(state => state.chatMode);
-
-    // Legacy modes declare support; live gateway text models all support it.
-    const supportsWebSearch =
-        ChatModeConfig[chatMode]?.webSearch ?? !isImageGenerationModel(chatMode);
-    if (!supportsWebSearch) return null;
-
-    return (
-        <Button
-            size={useWebSearch ? 'sm' : 'icon-sm'}
-            tooltip="Web Search"
-            aria-label="Web Search"
-            aria-pressed={useWebSearch}
-            variant={useWebSearch ? 'secondary' : 'ghost'}
-            className={cn('gap-2', useWebSearch && 'bg-blue-500/10 text-blue-500')}
-            onClick={() => setUseWebSearch(!useWebSearch)}
-        >
-            <IconWorld
-                size={16}
-                strokeWidth={2}
-                className={cn(useWebSearch ? '!text-blue-500' : 'text-muted-foreground')}
-            />
-            {useWebSearch && <p className="text-xs">Web</p>}
-        </Button>
-    );
-};
-
 export const NewLineIndicator = () => {
     const editor = useChatStore(state => state.editor);
     const hasTextInput = !!editor?.getText();

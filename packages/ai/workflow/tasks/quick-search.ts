@@ -154,18 +154,24 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             return answerFromPages(readable);
         }
 
-        const query = await generateObject({
-            prompt: `Today is ${getHumanizedDate()}.${gl?.country ? `You are in ${gl?.country}\n\n` : ''}
+        // The completion step may already have chosen a query when it decided
+        // this message needs the web.
+        const preparedQuery = context?.get('searchQuery');
+
+        const query = preparedQuery
+            ? { query: preparedQuery }
+            : await generateObject({
+                  prompt: `Today is ${getHumanizedDate()}.${gl?.country ? `You are in ${gl?.country}\n\n` : ''}
  Generate a query to search the web for information make sure query is not too broad and be specific for recent information`,
-            model: ModelEnum.GATEWAY_FLASH,
-            messages,
-            schema: z.object({
-                query: z.string(),
-            }),
-        }).catch(error => {
-            console.error('Search query generation failed', error);
-            return null;
-        });
+                  model: ModelEnum.GATEWAY_FLASH,
+                  messages,
+                  schema: z.object({
+                      query: z.string(),
+                  }),
+              }).catch(error => {
+                  console.error('Search query generation failed', error);
+                  return null;
+              });
 
         // That model sometimes returns nothing; the user's own words make a fine
         // query, so don't fail the message over it.
