@@ -46,17 +46,17 @@ export function stripPageFences(markdown: string): string {
         .trim();
 }
 
+export type StreamingPage = { title: string; type: PageType; content: string };
+
 /** A page fence that has started streaming but not closed yet. */
-export function getStreamingPage(
-    markdown: string
-): { title: string; type: PageType; size: number } | null {
+export function getStreamingPage(markdown: string): StreamingPage | null {
     if (!markdown || !markdown.includes('```page:')) return null;
     const m = markdown.replace(PAGE_FENCE_RE, '').match(OPEN_FENCE_RE);
     if (!m) return null;
     return {
         title: cleanTitle(m[1]),
         type: (m[2] as PageType) || 'html',
-        size: (m[3] || '').length,
+        content: m[3] || '',
     };
 }
 
@@ -66,8 +66,12 @@ const isPageType = (t: unknown): t is PageType =>
 const sortNewestFirst = (pages: Page[]) =>
     [...pages].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
 
+/** The page currently being written, shown live in the panel. */
+export type LivePage = StreamingPage & { threadItemId: string };
+
 type PageState = {
     threadId: string | null;
+    live: LivePage | null;
     pages: Page[];
     activePageId: string | null;
     panelOpen: boolean;
@@ -86,6 +90,8 @@ type PageActions = {
     deletePage: (pageId: string) => Promise<void>;
     restoreVersion: (pageId: string, versionId: string) => Promise<void>;
     markPublished: (pageId: string, shareId: string) => Promise<void>;
+    setLivePage: (live: LivePage) => void;
+    clearLivePage: (threadItemId?: string) => void;
     openPage: (pageId: string) => void;
     showList: () => void;
     setPanelOpen: (open: boolean) => void;
@@ -118,6 +124,7 @@ export const usePageStore = create<PageState & PageActions>()(
 
         return {
             threadId: null,
+            live: null,
             pages: [],
             activePageId: null,
             panelOpen: false,
@@ -125,7 +132,14 @@ export const usePageStore = create<PageState & PageActions>()(
 
             loadPages: async threadId => {
                 if (threadId === get().threadId) return;
-                set({ threadId, pages: [], activePageId: null, panelOpen: false, expanded: false });
+                set({
+                    threadId,
+                    pages: [],
+                    live: null,
+                    activePageId: null,
+                    panelOpen: false,
+                    expanded: false,
+                });
                 if (!threadId) return;
                 try {
                     const rows = await getThreadDb()
@@ -193,6 +207,7 @@ export const usePageStore = create<PageState & PageActions>()(
                 const rows = await db.pages.where('threadId').equals(threadId).toArray();
                 set({
                     threadId,
+                    live: null,
                     pages: sortNewestFirst(rows),
                     activePageId: lastId,
                     panelOpen: true,
@@ -247,6 +262,15 @@ export const usePageStore = create<PageState & PageActions>()(
                     if (!state.pages.length) state.panelOpen = false;
                 });
             },
+
+            // Opens the panel on the first chunk so the page builds in view.
+            setLivePage: live => set({ live, panelOpen: true }),
+            clearLivePage: threadItemId =>
+                set(state => {
+                    if (!threadItemId || state.live?.threadItemId === threadItemId) {
+                        state.live = null;
+                    }
+                }),
 
             openPage: pageId => set({ activePageId: pageId, panelOpen: true }),
             showList: () => set({ activePageId: null }),

@@ -9,6 +9,7 @@ import {
     IconChevronRight,
     IconDeviceDesktop,
     IconDeviceMobile,
+    IconLoader2,
     IconPlayerPlay,
     IconRefresh,
     IconX,
@@ -33,6 +34,15 @@ import { isFormula, parseWorkbook } from './sheets';
 import { parseDeck, type Deck } from './slides';
 
 type Tab = 'preview' | 'source';
+
+type ViewerProps = { page: Page; streaming?: boolean };
+
+const StreamingBadge = () => (
+    <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+        <span className="bg-brand size-1.5 animate-pulse rounded-full" />
+        Writing…
+    </span>
+);
 
 const Segmented = <T extends string>({
     value,
@@ -62,6 +72,49 @@ const Segmented = <T extends string>({
                 {o.label}
             </button>
         ))}
+    </div>
+);
+
+/** Follows the end of the content while a page streams in. */
+const useFollowStream = (dep: unknown, streaming?: boolean) => {
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (streaming && ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+    }, [dep, streaming]);
+    return ref;
+};
+
+/** Re-renders a live HTML preview at most once per interval. */
+const useThrottled = (value: string, streaming: boolean | undefined, ms = 1000) => {
+    const [shown, setShown] = useState(value);
+    useEffect(() => {
+        if (!streaming) {
+            setShown(value);
+            return;
+        }
+        const t = setTimeout(() => setShown(value), ms);
+        return () => clearTimeout(t);
+    }, [value, streaming, ms]);
+    return streaming ? shown : value;
+};
+
+const BuildingState = ({ label }: { label: string }) => (
+    <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-sm">
+        <IconLoader2 size={20} className="animate-spin" />
+        {label}
+    </div>
+);
+
+/** Read-only source while a page streams; editing waits until it is complete. */
+const LiveSource = ({
+    content,
+    scrollRef,
+}: {
+    content: string;
+    scrollRef?: React.RefObject<HTMLDivElement | null>;
+}) => (
+    <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+        <pre className="whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed">{content}</pre>
     </div>
 );
 
@@ -137,10 +190,19 @@ const SourceEditor = ({
     );
 };
 
-const HtmlViewer = memo(({ page }: { page: Page }) => {
-    const [tab, setTab] = useState<Tab>('preview');
+const HtmlViewer = memo(({ page, streaming }: ViewerProps) => {
+    // A half-written document renders as a blank page, so follow the code while
+    // it streams and switch to the preview once it is complete.
+    const [tab, setTab] = useState<Tab>(streaming ? 'source' : 'preview');
     const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
     const [reloadKey, setReloadKey] = useState(0);
+    const shown = useThrottled(page.content, streaming);
+    const codeRef = useFollowStream(page.content, streaming);
+    const wasStreaming = useRef(streaming);
+    useEffect(() => {
+        if (wasStreaming.current && !streaming) setTab('preview');
+        wasStreaming.current = streaming;
+    }, [streaming]);
 
     return (
         <div className="flex h-full flex-col">
@@ -150,11 +212,12 @@ const HtmlViewer = memo(({ page }: { page: Page }) => {
                     onChange={setTab}
                     options={[
                         { value: 'preview', label: 'Preview' },
-                        { value: 'source', label: 'Code' },
+                        { value: 'source', label: streaming ? 'Code (live)' : 'Code' },
                     ]}
                 />
                 <span className="flex-1" />
-                {tab === 'preview' && (
+                {streaming && <StreamingBadge />}
+                {tab === 'preview' && !streaming && (
                     <>
                         <Segmented
                             value={device}
@@ -195,7 +258,7 @@ const HtmlViewer = memo(({ page }: { page: Page }) => {
                         key={reloadKey}
                         title={page.title}
                         sandbox={HTML_SANDBOX}
-                        srcDoc={page.content}
+                        srcDoc={shown}
                         className={cn(
                             'h-full border-0 bg-white',
                             device === 'mobile'
@@ -204,6 +267,8 @@ const HtmlViewer = memo(({ page }: { page: Page }) => {
                         )}
                     />
                 </div>
+            ) : streaming ? (
+                <LiveSource content={page.content} scrollRef={codeRef} />
             ) : (
                 <SourceEditor page={page} language="HTML" />
             )}
@@ -312,10 +377,11 @@ const Presenter = ({
 const validateDeck = (content: string) =>
     parseDeck(content) ? null : 'Not a valid deck: expected JSON with a "slides" array.';
 
-const SlidesViewer = memo(({ page }: { page: Page }) => {
+const SlidesViewer = memo(({ page, streaming }: ViewerProps) => {
     const deck = useMemo(() => parseDeck(page.content), [page.content]);
-    const [tab, setTab] = useState<Tab>(deck ? 'preview' : 'source');
+    const [tab, setTab] = useState<Tab>(deck || streaming ? 'preview' : 'source');
     const [presenting, setPresenting] = useState<number | null>(null);
+    const listRef = useFollowStream(deck?.slides.length, streaming);
 
     return (
         <div className="flex h-full flex-col">
@@ -334,7 +400,8 @@ const SlidesViewer = memo(({ page }: { page: Page }) => {
                     </span>
                 )}
                 <span className="flex-1" />
-                {deck && tab === 'preview' && (
+                {streaming && <StreamingBadge />}
+                {deck && tab === 'preview' && !streaming && (
                     <Button size="xs" variant="secondary" onClick={() => setPresenting(0)}>
                         <IconPlayerPlay size={14} strokeWidth={2} />
                         Present
@@ -344,19 +411,21 @@ const SlidesViewer = memo(({ page }: { page: Page }) => {
             {tab === 'source' ? (
                 <SourceEditor page={page} language="Deck JSON" validate={validateDeck} />
             ) : deck ? (
-                <div className="bg-tertiary min-h-0 flex-1 overflow-y-auto">
+                <div ref={listRef} className="bg-tertiary min-h-0 flex-1 overflow-y-auto">
                     <ol className="mx-auto flex max-w-3xl flex-col gap-5 p-5">
                         {deck.slides.map((slide, i) => (
                             <li key={i} className="group">
                                 <div className="text-muted-foreground mb-1.5 flex items-center justify-between text-[11px] font-medium">
                                     <span>Slide {i + 1}</span>
-                                    <button
-                                        className="hover:text-foreground flex items-center gap-1 opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100"
-                                        onClick={() => setPresenting(i)}
-                                    >
-                                        <IconPlayerPlay size={12} strokeWidth={2} />
-                                        Present from here
-                                    </button>
+                                    {!streaming && (
+                                        <button
+                                            className="hover:text-foreground flex items-center gap-1 opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100"
+                                            onClick={() => setPresenting(i)}
+                                        >
+                                            <IconPlayerPlay size={12} strokeWidth={2} />
+                                            Present from here
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="border-border shadow-subtle-xs overflow-hidden rounded-lg border">
                                     <SlideView
@@ -376,6 +445,8 @@ const SlidesViewer = memo(({ page }: { page: Page }) => {
                         ))}
                     </ol>
                 </div>
+            ) : streaming ? (
+                <BuildingState label="Laying out the first slide…" />
             ) : (
                 <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm">
                     <IconAlertTriangle size={22} strokeWidth={1.5} />
@@ -415,8 +486,9 @@ const docComponents = {
     li: withBreakSupport('li'),
 };
 
-const DocViewer = memo(({ page }: { page: Page }) => {
+const DocViewer = memo(({ page, streaming }: ViewerProps) => {
     const [tab, setTab] = useState<Tab>('preview');
+    const pageRef = useFollowStream(page.content, streaming);
     return (
         <div className="flex h-full flex-col">
             <Toolbar>
@@ -425,15 +497,24 @@ const DocViewer = memo(({ page }: { page: Page }) => {
                     onChange={setTab}
                     options={[
                         { value: 'preview', label: 'Document' },
-                        { value: 'source', label: 'Markdown' },
+                        { value: 'source', label: streaming ? 'Markdown (live)' : 'Markdown' },
                     ]}
                 />
-                <span className="text-muted-foreground text-xs">Downloads as a Word file</span>
+                <span className="flex-1" />
+                {streaming ? (
+                    <StreamingBadge />
+                ) : (
+                    <span className="text-muted-foreground text-xs">Downloads as a Word file</span>
+                )}
             </Toolbar>
             {tab === 'source' ? (
-                <SourceEditor page={page} language="Markdown" />
+                streaming ? (
+                    <LiveSource content={page.content} />
+                ) : (
+                    <SourceEditor page={page} language="Markdown" />
+                )
             ) : (
-                <div className="bg-tertiary min-h-0 flex-1 overflow-y-auto p-6">
+                <div ref={pageRef} className="bg-tertiary min-h-0 flex-1 overflow-y-auto p-6">
                     {/* Letter-width sheet with ~1in margins, like the exported file. */}
                     <article className="bg-background border-border shadow-subtle-xs prose prose-sm prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-lg prose-table:text-sm prose-th:bg-tertiary prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2 prose-table:border prose-th:border prose-td:border mx-auto min-h-full max-w-[816px] rounded-md border px-[72px] py-16">
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={docComponents}>
@@ -450,10 +531,11 @@ DocViewer.displayName = 'DocViewer';
 const validateWorkbook = (content: string) =>
     parseWorkbook(content) ? null : 'Not a valid sheet: expected JSON with "sheets", or CSV.';
 
-const SheetViewer = memo(({ page }: { page: Page }) => {
+const SheetViewer = memo(({ page, streaming }: ViewerProps) => {
     const book = useMemo(() => parseWorkbook(page.content), [page.content]);
-    const [tab, setTab] = useState<Tab>(book ? 'preview' : 'source');
+    const [tab, setTab] = useState<Tab>(book || streaming ? 'preview' : 'source');
     const [active, setActive] = useState(0);
+    const gridRef = useFollowStream(page.content, streaming);
     const sheet = book?.sheets[Math.min(active, book.sheets.length - 1)];
 
     return (
@@ -467,6 +549,8 @@ const SheetViewer = memo(({ page }: { page: Page }) => {
                         { value: 'source', label: 'Data' },
                     ]}
                 />
+                <span className="flex-1" />
+                {streaming && <StreamingBadge />}
                 {sheet && (
                     <span className="text-muted-foreground text-xs">
                         {sheet.rows.length} rows ×{' '}
@@ -475,10 +559,14 @@ const SheetViewer = memo(({ page }: { page: Page }) => {
                 )}
             </Toolbar>
             {tab === 'source' ? (
-                <SourceEditor page={page} language="Sheet JSON" validate={validateWorkbook} />
+                streaming ? (
+                    <LiveSource content={page.content} />
+                ) : (
+                    <SourceEditor page={page} language="Sheet JSON" validate={validateWorkbook} />
+                )
             ) : sheet ? (
                 <>
-                    <div className="min-h-0 flex-1 overflow-auto">
+                    <div ref={gridRef} className="min-h-0 flex-1 overflow-auto">
                         <table className="min-w-full border-separate border-spacing-0 text-sm">
                             <thead className="sticky top-0 z-10">
                                 <tr>
@@ -550,6 +638,8 @@ const SheetViewer = memo(({ page }: { page: Page }) => {
                         </div>
                     )}
                 </>
+            ) : streaming ? (
+                <BuildingState label="Waiting for the first rows…" />
             ) : (
                 <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm">
                     <IconAlertTriangle size={22} strokeWidth={1.5} />
@@ -564,9 +654,9 @@ const SheetViewer = memo(({ page }: { page: Page }) => {
 });
 SheetViewer.displayName = 'SheetViewer';
 
-export function PageViewer({ page }: { page: Page }) {
-    if (page.type === 'slides') return <SlidesViewer page={page} />;
-    if (page.type === 'doc') return <DocViewer page={page} />;
-    if (page.type === 'sheet') return <SheetViewer page={page} />;
-    return <HtmlViewer page={page} />;
+export function PageViewer({ page, streaming }: ViewerProps) {
+    if (page.type === 'slides') return <SlidesViewer page={page} streaming={streaming} />;
+    if (page.type === 'doc') return <DocViewer page={page} streaming={streaming} />;
+    if (page.type === 'sheet') return <SheetViewer page={page} streaming={streaming} />;
+    return <HtmlViewer page={page} streaming={streaming} />;
 }

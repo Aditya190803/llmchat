@@ -12,7 +12,7 @@ import {
     Steps,
 } from '@repo/common/components';
 import { useAnimatedText } from '@repo/common/hooks';
-import { getStreamingPage, stripPageFences, useChatStore } from '@repo/common/store';
+import { getStreamingPage, stripPageFences, useChatStore, usePageStore } from '@repo/common/store';
 import { ThreadItem as ThreadItemType } from '@repo/shared/types';
 import { Alert, AlertDescription, cn } from '@repo/ui';
 import { IconAlertCircle, IconBook } from '@tabler/icons-react';
@@ -69,6 +69,21 @@ export const ThreadItem = memo(
             () => (isDone ? null : getStreamingPage(threadItem.answer?.text || '')),
             [isDone, threadItem.answer?.text]
         );
+
+        // Mirror the page being written into the panel so it builds in view.
+        const setLivePage = usePageStore(state => state.setLivePage);
+        const clearLivePage = usePageStore(state => state.clearLivePage);
+        useEffect(() => {
+            if (streamingPage) {
+                setLivePage({ ...streamingPage, threadItemId: threadItem.id });
+            } else if (isDone) {
+                // A finished page is handed over by the store; this clears an
+                // aborted or failed one.
+                clearLivePage(threadItem.id);
+            }
+        }, [streamingPage, isDone, threadItem.id, setLivePage, clearLivePage]);
+
+        useEffect(() => () => clearLivePage(threadItem.id), [threadItem.id, clearLivePage]);
 
         const hasResponse = useMemo(() => {
             return (
@@ -153,7 +168,11 @@ export const ThreadItem = memo(
                             )}
                             {streamingPage ? (
                                 <div className="mt-3">
-                                    <PageBuildingCard {...streamingPage} />
+                                    <PageBuildingCard
+                                        title={streamingPage.title}
+                                        type={streamingPage.type}
+                                        size={streamingPage.content.length}
+                                    />
                                 </div>
                             ) : (
                                 isAnimationComplete && (

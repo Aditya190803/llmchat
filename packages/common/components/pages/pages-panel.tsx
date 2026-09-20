@@ -374,6 +374,7 @@ const PageList = ({ pages }: { pages: Page[] }) => {
 
 export function PagesPanel() {
     useThreadPages();
+    const live = usePageStore(s => s.live);
     const pages = usePageStore(s => s.pages);
     const activePageId = usePageStore(s => s.activePageId);
     const panelOpen = usePageStore(s => s.panelOpen);
@@ -383,7 +384,20 @@ export function PagesPanel() {
     const showList = usePageStore(s => s.showList);
 
     // A single page needs no list: open it directly.
-    const active = pages.find(p => p.id === activePageId) ?? (pages.length === 1 ? pages[0] : null);
+    const stored = pages.find(p => p.id === activePageId) ?? (pages.length === 1 ? pages[0] : null);
+    // While a page streams it takes over the panel, as a page without history.
+    const active: Page | null = live
+        ? {
+              id: 'live',
+              threadId: '',
+              title: live.title,
+              type: live.type,
+              content: live.content,
+              versions: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+          }
+        : stored;
 
     useEffect(() => {
         if (!panelOpen) return;
@@ -400,7 +414,7 @@ export function PagesPanel() {
 
     return (
         <AnimatePresence>
-            {panelOpen && pages.length > 0 && (
+            {panelOpen && (pages.length > 0 || live) && (
                 <motion.aside
                     key="pages-panel"
                     initial={{ opacity: 0, x: 24 }}
@@ -418,7 +432,7 @@ export function PagesPanel() {
                     )}
                 >
                     <header className="border-border flex h-12 shrink-0 items-center gap-1 border-b px-2">
-                        {active && pages.length > 1 && (
+                        {active && !live && pages.length > 1 && (
                             <Button
                                 size="icon-sm"
                                 variant="ghost"
@@ -434,12 +448,26 @@ export function PagesPanel() {
                                 <span className="text-muted-foreground flex h-7 w-7 shrink-0 items-center justify-center">
                                     <PageTypeIcon type={active.type} size={16} />
                                 </span>
-                                <Title key={active.id} page={active} />
-                                <VersionMenu page={active} />
-                                <span className="bg-border mx-1 h-4 w-px shrink-0" />
-                                <DownloadButton page={active} />
-                                {active.type === 'html' && <PublishButton page={active} />}
-                                <MoreMenu page={active} />
+                                {live ? (
+                                    <>
+                                        <span className="min-w-0 flex-1 truncate px-1.5 text-sm font-medium">
+                                            {live.title}
+                                        </span>
+                                        <span className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs">
+                                            <IconLoader2 size={13} className="animate-spin" />
+                                            Generating
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Title key={active.id} page={active} />
+                                        <VersionMenu page={active} />
+                                        <span className="bg-border mx-1 h-4 w-px shrink-0" />
+                                        <DownloadButton page={active} />
+                                        {active.type === 'html' && <PublishButton page={active} />}
+                                        <MoreMenu page={active} />
+                                    </>
+                                )}
                             </>
                         ) : (
                             <span className="flex-1 px-2 text-sm font-medium">
@@ -478,7 +506,8 @@ export function PagesPanel() {
                         <div className="min-h-0 flex-1">
                             <PageViewer
                                 page={active}
-                                key={`${active.id}:${active.activeVersionId}`}
+                                streaming={!!live}
+                                key={live ? 'live' : `${active.id}:${active.activeVersionId}`}
                             />
                         </div>
                     ) : (
