@@ -12,6 +12,11 @@ export const generateErrorMessage = (error: Error | string) => {
             return 'You are not authorized to access this resource. Please try again.';
         }
 
+        // Search/reader problems explain themselves better than a generic message.
+        if (/web search|could not read that link/i.test(error.message)) {
+            return error.message;
+        }
+
         if (error.message.toLowerCase().includes('timeout')) {
             return 'The request timed out. Please try again.';
         }

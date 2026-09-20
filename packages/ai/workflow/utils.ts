@@ -196,7 +196,9 @@ export const generateGatewayImage = async ({
             model,
             messages: [
                 { role: 'system', content: 'Generate an image that matches the user request.' },
-                ...(messages?.length ? messages.map(toGatewayMessage) : [{ role: 'user', content: prompt }]),
+                ...(messages?.length
+                    ? messages.map(toGatewayMessage)
+                    : [{ role: 'user', content: prompt }]),
             ],
             modalities: ['text', 'image'],
             stream: false,
@@ -355,47 +357,42 @@ export const getHumanizedDate = () => {
     return format(new Date(), 'MMMM dd, yyyy, h:mm a');
 };
 
-export const getSERPResults = async (queries: string[], gl?: Geo) => {
-    const myHeaders = new Headers();
-    const apiKey = process.env.SERPER_API_KEY || (self as any).SERPER_API_KEY || '';
+export type SearchResultItem = { title: string; link: string; snippet: string };
 
-    if (!apiKey) {
-        throw new Error('SERPER_API_KEY is not configured');
-    }
+/** Extract URLs a user pasted into their message. */
+export const extractUrls = (text: string): string[] => {
+    const matches = text?.match(/https?:\/\/[^\s<>()\[\]"']+/gi) || [];
+    return Array.from(new Set(matches.map(url => url.replace(/[.,;:!?)]+$/, '')))).slice(0, 5);
+};
 
-    myHeaders.append('X-API-KEY', apiKey);
-    myHeaders.append('Content-Type', 'application/json');
+const serperSearch = async (queries: string[], gl?: Geo): Promise<SearchResultItem[]> => {
+    // `self` only exists on the edge runtime; touching it on Node threw
+    // "self is not defined" and broke every web search.
+    const apiKey =
+        process.env.SERPER_API_KEY ||
+        (typeof self !== 'undefined' ? ((self as any).SERPER_API_KEY as string) : '') ||
+        '';
+    if (!apiKey) return [];
 
     const raw = JSON.stringify(
-        queries.slice(0, 3).map(query => ({
-            q: query,
-            gl: gl?.country,
-            location: gl?.city,
-        }))
+        queries.slice(0, 3).map(query => ({ q: query, gl: gl?.country, location: gl?.city }))
     );
-
-    console.log('raw', raw);
 
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
-
         const response = await fetch('https://google.serper.dev/search', {
             method: 'POST',
-            headers: myHeaders,
+            headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
             body: raw,
             redirect: 'follow',
             signal: controller.signal,
         });
-
         clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            throw new Error(`SERP API responded with status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`SERP API responded with status: ${response.status}`);
 
         const batchResult = await response.json();
-
         const organicResultsLists =
             batchResult?.map((result: any) => result.organic?.slice(0, 10)) || [];
         const allOrganicResults = organicResultsLists.flat();
@@ -410,9 +407,46 @@ export const getSERPResults = async (queries: string[], gl?: Geo) => {
             snippet: item.snippet,
         }));
     } catch (error) {
-        console.error(error);
+        console.error('Serper search failed', error);
         return [];
     }
+};
+
+/** Keyless fallback so web search still works without a Serper key. */
+const duckDuckGoSearch = async (queries: string[]): Promise<SearchResultItem[]> => {
+    try {
+        const { search, SafeSearchType } = await import('duck-duck-scrape');
+        const batches = await Promise.all(
+            queries.slice(0, 2).map(query =>
+                search(query, { safeSearch: SafeSearchType.MODERATE }).catch(error => {
+                    console.error('DuckDuckGo search failed', error);
+                    return { results: [] as any[] };
+                })
+            )
+        );
+        const results = batches
+            .flatMap(batch => batch.results || [])
+            .map((item: any) => ({
+                title: item.title,
+                link: item.url,
+                snippet: item.description,
+            }));
+        return results
+            .filter(
+                (result, index, all) =>
+                    result.link && index === all.findIndex(other => other.link === result.link)
+            )
+            .slice(0, 10);
+    } catch (error) {
+        console.error('DuckDuckGo search unavailable', error);
+        return [];
+    }
+};
+
+export const getSERPResults = async (queries: string[], gl?: Geo): Promise<SearchResultItem[]> => {
+    const serper = await serperSearch(queries, gl);
+    if (serper.length) return serper;
+    return duckDuckGoSearch(queries);
 };
 
 export const getWebPageContent = async (url: string) => {

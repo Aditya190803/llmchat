@@ -8,6 +8,7 @@ import {
     generateObject,
     generateText,
     getHumanizedDate,
+    extractUrls,
     getSERPResults,
     handleError,
     sendEvents,
@@ -76,7 +77,7 @@ const MAX_ALLOWED_CUSTOM_INSTRUCTIONS_LENGTH = 6000;
 
 export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSchema>({
     name: 'quickSearch',
-    execute: async ({ events, context, signal, trace }) => {
+    execute: async ({ events, context, signal, trace, redirectTo }) => {
         // Helper function to update step status
 
         const { updateStep, updateStatus, addSources, updateAnswer, nextStepId } =
@@ -109,6 +110,48 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             ];
         }
 
+        // A pasted URL is the source: read it instead of searching for it.
+        const lastUserMessage = [...messages].reverse().find(message => message.role === 'user');
+        const pastedUrls = extractUrls(
+            typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : ''
+        );
+
+        if (pastedUrls.length) {
+            updateStep({
+                stepId: 0,
+                stepStatus: 'PENDING',
+                subSteps: {
+                    search: { status: 'COMPLETED', data: pastedUrls },
+                    read: {
+                        status: 'PENDING',
+                        data: pastedUrls.map(url => ({ title: url, link: url })),
+                    },
+                },
+            });
+
+            const pages = await readWebPagesWithTimeout(pastedUrls, 30000, 80);
+            const readable = pages.filter(page => page.success && page.markdown);
+            if (!readable.length) {
+                throw new Error('Could not read that link. It may be blocked, private or offline.');
+            }
+
+            addSources(
+                readable.map(page => ({
+                    title: page.title || page.url || '',
+                    link: page.url || '',
+                    snippet: (page.markdown || '').slice(0, 200),
+                }))
+            );
+
+            updateStep({
+                stepId: 0,
+                stepStatus: 'COMPLETED',
+                subSteps: { read: { status: 'COMPLETED' } },
+            });
+
+            return answerFromPages(readable);
+        }
+
         const query = await generateObject({
             prompt: `Today is ${getHumanizedDate()}.${gl?.country ? `You are in ${gl?.country}\n\n` : ''}
  Generate a query to search the web for information make sure query is not too broad and be specific for recent information`,
@@ -117,10 +160,19 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             schema: z.object({
                 query: z.string(),
             }),
+        }).catch(error => {
+            console.error('Search query generation failed', error);
+            return null;
         });
 
-        if (!query.query) {
-            throw new Error('No query generated');
+        // That model sometimes returns nothing; the user's own words make a fine
+        // query, so don't fail the message over it.
+        const askedText =
+            typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '';
+        const searchQuery = (query?.query || '').trim() || askedText.trim().slice(0, 200);
+
+        if (!searchQuery) {
+            throw new Error('Nothing to search for.');
         }
 
         // Update search step with query and PENDING status
@@ -128,15 +180,28 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             stepId: 0,
             stepStatus: 'PENDING',
             subSteps: {
-                search: { status: 'COMPLETED', data: [query.query] },
+                search: { status: 'COMPLETED', data: [searchQuery] },
                 read: { status: 'PENDING', data: [] },
             },
         });
 
-        const results = await getSERPResults([query.query], gl);
+        const results = await getSERPResults([searchQuery], gl);
 
         if (!results || results.length === 0) {
-            throw new Error('No results found');
+            // No search provider (or it is blocked): answer from the model rather
+            // than failing the message. The step says the web was not used.
+            updateStep({
+                stepId: 0,
+                text: 'Web search unavailable — answering without it',
+                stepStatus: 'COMPLETED',
+                subSteps: {
+                    search: { status: 'COMPLETED' },
+                    read: { status: 'COMPLETED', data: [] },
+                },
+            });
+            context?.update('webSearch', () => false);
+            redirectTo('completion');
+            return;
         }
 
         // Mark search as COMPLETED and read as PENDING with data
@@ -176,60 +241,61 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             },
         });
 
-        const stepId = nextStepId();
+        return answerFromPages(webpageReader);
 
-        console.log('stepId', stepId);
-
-        updateStep({
-            stepId,
-            stepStatus: 'COMPLETED',
-            subSteps: {
-                wrapup: { status: 'COMPLETED' },
-            },
-        });
-
-        const prompt = buildWebSearchPrompt(webpageReader);
-
-        updateAnswer({
-            text: '',
-            status: 'PENDING',
-        });
-
-        const response = await generateText({
-            model,
-            messages: [...messages],
-            prompt,
-            onChunk: (chunk, fullText) => {
-                updateAnswer({
-                    text: chunk,
-                    status: 'PENDING',
-                });
-            },
-        });
-
-        updateAnswer({
-            text: '',
-            finalText: response,
-            status: 'COMPLETED',
-        });
-
-        context?.update('answer', _ => response);
-
-        const onFinish = context?.get('onFinish');
-        if (onFinish) {
-            onFinish({
-                answer: response,
-                threadId: context?.get('threadId'),
-                threadItemId: context?.get('threadItemId'),
+        async function answerFromPages(pages: TReaderResult[]) {
+            const stepId = nextStepId();
+            updateStep({
+                stepId,
+                stepStatus: 'COMPLETED',
+                subSteps: {
+                    wrapup: { status: 'COMPLETED' },
+                },
             });
+
+            const prompt = buildWebSearchPrompt(pages);
+
+            updateAnswer({
+                text: '',
+                status: 'PENDING',
+            });
+
+            const response = await generateText({
+                model,
+                messages: [...messages],
+                prompt,
+                onChunk: chunk => {
+                    updateAnswer({
+                        text: chunk,
+                        status: 'PENDING',
+                    });
+                },
+            });
+
+            updateAnswer({
+                text: '',
+                finalText: response,
+                status: 'COMPLETED',
+            });
+
+            context?.update('answer', _ => response);
+
+            const onFinish = context?.get('onFinish');
+            if (onFinish) {
+                onFinish({
+                    answer: response,
+                    threadId: context?.get('threadId'),
+                    threadItemId: context?.get('threadItemId'),
+                });
+            }
+
+            updateStatus('COMPLETED');
+
+            return {
+                retry: false,
+                result: 'success' as const,
+            };
         }
-
-        updateStatus('COMPLETED');
-
-        return {
-            retry: false,
-            result: 'success',
-        };
     },
     onError: handleError,
     route: ({ context }) => {

@@ -36,7 +36,7 @@ export type TReaderResult = {
 
 const MIN_CONTENT_LENGTH = 500;
 
-const readURL = async (url: string): Promise<TReaderResult> => {
+const readURL = async (url: string, minLength = MIN_CONTENT_LENGTH): Promise<TReaderResult> => {
     try {
         const response = await fetch(url);
         const html = await response.text();
@@ -56,7 +56,7 @@ const readURL = async (url: string): Promise<TReaderResult> => {
         if (mainContent) {
             const markdown = turndownService.turndown(mainContent);
 
-            if (markdown.length >= MIN_CONTENT_LENGTH) {
+            if (markdown.length >= minLength) {
                 return {
                     success: true,
                     title: title,
@@ -101,14 +101,17 @@ function extractMainContent(root: any): string {
 
 export const readWebPagesWithTimeout = async (
     urls: string[],
-    timeoutMs = 60000
+    timeoutMs = 60000,
+    // A link the user pasted is worth reading even when the page is short;
+    // search results are held to the higher bar to skip stubs and walls.
+    minLength = MIN_CONTENT_LENGTH
 ): Promise<TReaderResult[]> => {
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
     try {
         const readPromises = urls.map(url => {
-            return readURL(url).catch(error => {
+            return readURL(url, minLength).catch(error => {
                 console.error(`Error reading ${url}:`, error);
                 return { success: false };
             });
