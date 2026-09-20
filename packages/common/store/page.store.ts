@@ -63,6 +63,20 @@ export function getStreamingPage(markdown: string): StreamingPage | null {
 const PAGE_TYPES: PageType[] = ['html', 'slides', 'doc', 'sheet', 'md'];
 const isPageType = (t: unknown): t is PageType => PAGE_TYPES.includes(t as PageType);
 
+/** Every answer a page belongs to (older rows only have threadItemId). */
+export const pageItemIds = (page: Page): string[] =>
+    page.itemIds?.length ? page.itemIds : page.threadItemId ? [page.threadItemId] : [];
+
+/** Titles match loosely: models re-title a revision with different casing or punctuation. */
+const sameTitle = (a: string, b: string) => {
+    const norm = (t: string) =>
+        t
+            .toLowerCase()
+            .replace(/\b(v\d+|updated|revised|final|copy|new)\b/g, '')
+            .replace(/[^a-z0-9]+/g, '');
+    return norm(a) === norm(b) && norm(a).length > 0;
+};
+
 const sortNewestFirst = (pages: Page[]) =>
     [...pages].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
 
@@ -158,18 +172,34 @@ export const usePageStore = create<PageState & PageActions>()(
                 const parsed = parsePagesFromMarkdown(text);
                 if (!parsed.length) return;
                 const db = getThreadDb();
-                // A regenerated answer reuses its threadItemId: add a version to the
-                // existing page instead of creating a duplicate.
-                const existing = (await db.pages.where('threadId').equals(threadId).toArray())
-                    .filter(p => p.threadItemId === threadItemId)
-                    .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+                const all = (await db.pages.where('threadId').equals(threadId).toArray()).sort(
+                    (a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)
+                );
+                // A regenerated answer reuses its own id; a revision ("make it
+                // monochrome") arrives in a new answer, and the model keeps the title.
+                const fromThisAnswer = all.filter(p => pageItemIds(p).includes(threadItemId));
+                const claimed = new Set<string>();
                 let lastId: string | null = null;
+
                 for (let i = 0; i < parsed.length; i++) {
                     const p = parsed[i];
                     const now = new Date();
-                    const prior = existing[i];
-                    if (prior && prior.type === p.type) {
-                        if (prior.content !== p.content) {
+                    const prior =
+                        fromThisAnswer[i] ??
+                        all.find(
+                            x =>
+                                !claimed.has(x.id) && x.type === p.type && sameTitle(x.title, p.title)
+                        );
+
+                    if (prior) {
+                        claimed.add(prior.id);
+                        lastId = prior.id;
+                        const itemIds = pageItemIds(prior).includes(threadItemId)
+                            ? pageItemIds(prior)
+                            : [...pageItemIds(prior), threadItemId];
+                        if (prior.content === p.content) {
+                            await db.pages.put({ ...prior, itemIds });
+                        } else {
                             const version = newVersion(p.content, prior.versions);
                             await db.pages.put({
                                 ...prior,
@@ -177,17 +207,20 @@ export const usePageStore = create<PageState & PageActions>()(
                                 content: p.content,
                                 versions: [...prior.versions, version].slice(-20),
                                 activeVersionId: version.id,
+                                threadItemId,
+                                itemIds,
                                 updatedAt: now,
                             });
                         }
-                        lastId = prior.id;
                         continue;
                     }
+
                     const version = newVersion(p.content);
                     const page: Page = {
                         id: nanoid(),
                         threadId,
                         threadItemId,
+                        itemIds: [threadItemId],
                         title: p.title,
                         type: p.type,
                         content: p.content,
@@ -197,6 +230,7 @@ export const usePageStore = create<PageState & PageActions>()(
                         updatedAt: now,
                     };
                     await db.pages.put(page);
+                    claimed.add(page.id);
                     lastId = page.id;
                 }
                 // Only surface the panel if the user is still looking at this thread
@@ -267,7 +301,7 @@ export const usePageStore = create<PageState & PageActions>()(
             setLivePage: live =>
                 set(state => {
                     // Ignore late chunks for a page that has already been saved.
-                    if (state.pages.some(p => p.threadItemId === live.threadItemId)) return;
+                    if (state.pages.some(p => pageItemIds(p).includes(live.threadItemId))) return;
                     state.live = live;
                     state.panelOpen = true;
                 }),

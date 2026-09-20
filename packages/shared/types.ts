@@ -108,7 +108,10 @@ export type PageVersion = {
 export type Page = {
     id: string;
     threadId: string;
+    /** The answer that produced the current version. */
     threadItemId?: string;
+    /** Every answer that produced a version, so each one can link to the page. */
+    itemIds?: string[];
     title: string;
     type: PageType;
     /** HTML: full document. Slides/sheets: JSON. Docs and md: markdown. */

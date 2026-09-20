@@ -1,6 +1,6 @@
 'use client';
 
-import { usePageStore } from '@repo/common/store';
+import { pageItemIds, usePageStore } from '@repo/common/store';
 import { Page, PageType, ThreadItem } from '@repo/shared/types';
 import { cn } from '@repo/ui';
 import {
@@ -116,7 +116,7 @@ export const PageCards = memo(({ threadItem }: { threadItem: ThreadItem }) => {
     const mine = useMemo(
         () =>
             pages
-                .filter(p => p.threadItemId === threadItem.id)
+                .filter(p => pageItemIds(p).includes(threadItem.id))
                 .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)),
         [pages, threadItem.id]
     );
