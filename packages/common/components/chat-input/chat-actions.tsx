@@ -105,15 +105,6 @@ export const AttachmentButton = () => {
     );
 };
 
-const CreditChip = ({ credits }: { credits: number }) => (
-    <span
-        className="text-muted-foreground shrink-0 text-[10px] tabular-nums"
-        title={`${credits} credit${credits === 1 ? '' : 's'} per message`}
-    >
-        {credits}
-    </span>
-);
-
 /** Thinking effort, as its own composer control: only models with levels show it. */
 export const EffortButton = () => {
     const chatMode = useChatStore(state => state.chatMode);
@@ -225,7 +216,6 @@ const ModelFamilyList = ({
                     {family.isImage && (
                         <span className="text-muted-foreground shrink-0 text-[10px]">Image</span>
                     )}
-                    <CreditChip credits={getCreditCost(targetId)} />
                 </button>
             );
         })}
@@ -341,7 +331,6 @@ export const ChatModeButton = () => {
                                         {option.label}
                                     </span>
                                     {ChatModeConfig[option.value]?.isNew && <NewIcon />}
-                                    <CreditChip credits={getCreditCost(option.value)} />
                                 </button>
                             ))}
                             <div className="border-border my-2 border-t" />
@@ -368,10 +357,6 @@ export const ChatModeButton = () => {
                         />
                     )}
                 </div>
-
-                <p className="border-border text-muted-foreground shrink-0 border-t px-3 py-2 text-[11px]">
-                    Credits per message. Effort is set next to the send button.
-                </p>
             </PopoverContent>
         </Popover>
     );
