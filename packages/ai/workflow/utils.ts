@@ -13,6 +13,7 @@ import { AI_GATEWAY_BASE_URL, getLanguageModel } from '../providers';
 import { isImageGenerationModel } from '@repo/shared/config';
 import { WorkflowEventSchema } from './flow';
 import { generateErrorMessage } from './tasks/utils';
+import { hasTinyfish, tinyfishSearch } from './tinyfish';
 
 export type ChunkBufferOptions = {
     threshold?: number;
@@ -443,9 +444,23 @@ const duckDuckGoSearch = async (queries: string[]): Promise<SearchResultItem[]> 
     }
 };
 
-export const getSERPResults = async (queries: string[], gl?: Geo): Promise<SearchResultItem[]> => {
+/**
+ * Web search providers in order of preference: TinyFish (free tier, one key),
+ * Serper, then keyless DuckDuckGo as a last resort.
+ */
+export const getSERPResults = async (
+    queries: string[],
+    gl?: Geo,
+    purpose?: string
+): Promise<SearchResultItem[]> => {
+    if (hasTinyfish()) {
+        const tinyfish = await tinyfishSearch(queries, gl, purpose);
+        if (tinyfish.length) return tinyfish;
+    }
+
     const serper = await serperSearch(queries, gl);
     if (serper.length) return serper;
+
     return duckDuckGoSearch(queries);
 };
 

@@ -1,3 +1,4 @@
+import { hasTinyfish, tinyfishFetch } from './tinyfish';
 import { parse } from 'node-html-parser';
 import TurndownService from 'turndown';
 
@@ -104,16 +105,25 @@ export const readWebPagesWithTimeout = async (
     timeoutMs = 60000,
     // A link the user pasted is worth reading even when the page is short;
     // search results are held to the higher bar to skip stubs and walls.
-    minLength = MIN_CONTENT_LENGTH
+    minLength = MIN_CONTENT_LENGTH,
+    purpose?: string
 ): Promise<TReaderResult[]> => {
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
     try {
-        const readPromises = urls.map(url => {
+        // TinyFish Fetch extracts cleaner text than the local pass; anything it
+        // cannot read falls back to fetching the page here.
+        const viaTinyfish = hasTinyfish() ? await tinyfishFetch(urls, purpose) : [];
+
+        const readPromises = urls.map((url, index) => {
+            const fetched = viaTinyfish[index];
+            if (fetched?.success && (fetched.markdown?.length || 0) >= minLength) {
+                return Promise.resolve(fetched);
+            }
             return readURL(url, minLength).catch(error => {
                 console.error(`Error reading ${url}:`, error);
-                return { success: false };
+                return fetched?.success ? fetched : { success: false };
             });
         });
 

@@ -112,6 +112,8 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
 
         // A pasted URL is the source: read it instead of searching for it.
         const lastUserMessage = [...messages].reverse().find(message => message.role === 'user');
+        const askedFor =
+            typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : undefined;
         const pastedUrls = extractUrls(
             typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : ''
         );
@@ -129,7 +131,7 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
                 },
             });
 
-            const pages = await readWebPagesWithTimeout(pastedUrls, 30000, 80);
+            const pages = await readWebPagesWithTimeout(pastedUrls, 30000, 80, askedFor);
             const readable = pages.filter(page => page.success && page.markdown);
             if (!readable.length) {
                 throw new Error('Could not read that link. It may be blocked, private or offline.');
@@ -185,7 +187,7 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
             },
         });
 
-        const results = await getSERPResults([searchQuery], gl);
+        const results = await getSERPResults([searchQuery], gl, askedFor);
 
         if (!results || results.length === 0) {
             // No search provider (or it is blocked): answer from the model rather
@@ -229,7 +231,9 @@ export const quickSearchTask = createTask<WorkflowEventSchema, WorkflowContextSc
 
         const webpageReader = await readWebPagesWithTimeout(
             results.map((result: any) => result?.link),
-            30000
+            30000,
+            undefined,
+            askedFor
         );
 
         // Mark read as COMPLETED and wrapup as PENDING
