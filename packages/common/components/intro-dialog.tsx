@@ -1,3 +1,4 @@
+import { APP_NAME } from '@repo/shared/config';
 import { cn, Dialog, DialogContent } from '@repo/ui';
 import { IconCircleCheckFilled } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
@@ -33,7 +34,7 @@ export const IntroDialog = () => {
         },
         {
             icon,
-            text: `**Research-friendly**: Leverage Web Search, Pro Search, and Deep Research features.`,
+            text: `**Research-friendly**: searches the web on its own and runs Deep Research when you ask.`,
         },
         {
             icon,
@@ -41,7 +42,7 @@ export const IntroDialog = () => {
         },
         {
             icon,
-            text: `**Managed access**: Your workspace admin controls models and usage.`, 
+            text: `**Managed access**: Your workspace admin controls models and usage.`,
         },
         {
             icon,
@@ -77,7 +78,7 @@ export const IntroDialog = () => {
                         >
                             <Logo className="text-brand size-5" />
                             <p className="font-clash text-foreground text-lg font-bold tracking-wide">
-                                llmchat.co
+                                {APP_NAME}
                             </p>
                         </div>
                         <p className="text-base font-semibold">

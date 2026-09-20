@@ -1,3 +1,4 @@
+import { hasTinyfish, tinyfishFetch } from './tinyfish';
 import { parse } from 'node-html-parser';
 import TurndownService from 'turndown';
 
@@ -36,7 +37,7 @@ export type TReaderResult = {
 
 const MIN_CONTENT_LENGTH = 500;
 
-const readURL = async (url: string): Promise<TReaderResult> => {
+const readURL = async (url: string, minLength = MIN_CONTENT_LENGTH): Promise<TReaderResult> => {
     try {
         const response = await fetch(url);
         const html = await response.text();
@@ -56,7 +57,7 @@ const readURL = async (url: string): Promise<TReaderResult> => {
         if (mainContent) {
             const markdown = turndownService.turndown(mainContent);
 
-            if (markdown.length >= MIN_CONTENT_LENGTH) {
+            if (markdown.length >= minLength) {
                 return {
                     success: true,
                     title: title,
@@ -101,16 +102,28 @@ function extractMainContent(root: any): string {
 
 export const readWebPagesWithTimeout = async (
     urls: string[],
-    timeoutMs = 60000
+    timeoutMs = 60000,
+    // A link the user pasted is worth reading even when the page is short;
+    // search results are held to the higher bar to skip stubs and walls.
+    minLength = MIN_CONTENT_LENGTH,
+    purpose?: string
 ): Promise<TReaderResult[]> => {
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
     try {
-        const readPromises = urls.map(url => {
-            return readURL(url).catch(error => {
+        // TinyFish Fetch extracts cleaner text than the local pass; anything it
+        // cannot read falls back to fetching the page here.
+        const viaTinyfish = hasTinyfish() ? await tinyfishFetch(urls, purpose) : [];
+
+        const readPromises = urls.map((url, index) => {
+            const fetched = viaTinyfish[index];
+            if (fetched?.success && (fetched.markdown?.length || 0) >= minLength) {
+                return Promise.resolve(fetched);
+            }
+            return readURL(url, minLength).catch(error => {
                 console.error(`Error reading ${url}:`, error);
-                return { success: false };
+                return fetched?.success ? fetched : { success: false };
             });
         });
 

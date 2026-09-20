@@ -1,11 +1,11 @@
+import { APP_DESCRIPTION, APP_NAME } from '@repo/shared/config';
 import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: 'llmchat.co',
-        short_name: 'llmchat.co',
-        description:
-            'llmchat.co is a modern AI chat client that allows you to chat with AI in a more intuitive way.',
+        name: APP_NAME,
+        short_name: APP_NAME,
+        description: APP_DESCRIPTION,
         start_url: '/',
         display: 'standalone',
         background_color: 'hsl(60 20% 99%)',

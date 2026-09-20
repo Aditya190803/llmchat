@@ -1,7 +1,7 @@
 import { getSessionUser } from '@/lib/auth';
 import { FREE_DEFAULT_MODELS } from '@/lib/tiers';
 import { prisma } from '@repo/prisma';
-import { groupGatewayModels } from '@repo/shared/config';
+import { groupGatewayModels, isSelectableModel } from '@repo/shared/config';
 import { NextResponse } from 'next/server';
 
 const BASE = process.env.AI_GATEWAY_BASE_URL || 'https://ai-gateway.adityamer.dev/v1';
@@ -20,13 +20,17 @@ export async function GET() {
             cache: 'no-store',
         });
         if (!response.ok) {
-            return NextResponse.json({ error: `Gateway responded ${response.status}` }, { status: 502 });
+            return NextResponse.json(
+                { error: `Gateway responded ${response.status}` },
+                { status: 502 }
+            );
         }
 
         const json = (await response.json()) as { data?: GatewayModel[] };
-        const models = Array.from(
-            new Set((json.data || []).map(model => model.id).filter(Boolean))
-        ).sort();
+        const models = Array.from(new Set((json.data || []).map(model => model.id).filter(Boolean)))
+            // Speech, safety classifiers and retired generations never reach the picker.
+            .filter(isSelectableModel)
+            .sort();
         const policies = await prisma.modelPolicy.findMany({ where: { mode: { in: models } } });
         const session = await getSessionUser();
         const isPrivileged = !!session?.isPro || !!session?.isAdmin;

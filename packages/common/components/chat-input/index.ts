@@ -7,3 +7,4 @@ export * from './image-dropzone-root';
 export * from './image-upload';
 export * from './input';
 export * from './selected-context';
+export * from './voice-input';

@@ -32,6 +32,13 @@ export const getModelEffort = (modelId: string): ModelEffort | undefined => {
     return suffix;
 };
 
+/**
+ * "openai/gpt-oss-120b" and "gpt-oss-120b-medium" are the same model reaching
+ * us by two routes. Users should see one entry, so the vendor prefix is dropped
+ * when naming and grouping; the full id is still what gets sent to the gateway.
+ */
+export const stripProviderPrefix = (modelId: string) => modelId.replace(/^[^/]+\//, '');
+
 export const getModelFamilyId = (modelId: string) => {
     const suffix = getEffortSuffix(modelId);
     return suffix ? modelId.slice(0, -(suffix.length + 1)) : modelId;
@@ -45,10 +52,20 @@ const titlePart = (part: string) => {
 };
 
 export const formatGatewayModelName = (modelId: string) =>
-    modelId
+    stripProviderPrefix(modelId)
         .replace(/_/g, ' ')
         .split('-')
         .map(titlePart)
+        // "4", "6" in claude-opus-4-6 are one version number, not two words.
+        .reduce<string[]>((parts, part) => {
+            const previous = parts[parts.length - 1];
+            if (/^\d+$/.test(part) && previous && /^[\d.]+$/.test(previous)) {
+                parts[parts.length - 1] = `${previous}.${part}`;
+                return parts;
+            }
+            parts.push(part);
+            return parts;
+        }, [])
         .join(' ');
 
 export const effortLabel = (effort?: ModelEffort) => {
@@ -67,6 +84,54 @@ export const effortLabel = (effort?: ModelEffort) => {
     }
 };
 
+/** Thinking longer costs more; a tiered/instant model costs its base price. */
+export const EFFORT_COST_MULTIPLIER: Record<ModelEffort, number> = {
+    instant: 1,
+    'extra-low': 1,
+    low: 1.25,
+    medium: 1.5,
+    high: 2,
+};
+
+// Matched per name segment: "gemini" must not count as "mini".
+const CHEAP_SEGMENTS = new Set([
+    'lite',
+    'nano',
+    'mini',
+    'tiny',
+    'small',
+    'oss',
+    'haiku',
+    'tab',
+    'chat',
+]);
+const PREMIUM_SEGMENTS = new Set([
+    'pro',
+    'opus',
+    'sonnet',
+    'thinking',
+    'reasoning',
+    'agent',
+    'ultra',
+    'max',
+]);
+
+/** Small models are cheap, frontier/reasoning models are not. */
+export const getModelBaseCost = (modelId: string) => {
+    const segments = modelId.toLowerCase().split(/[-_.\s]+/);
+    if (segments.some(segment => PREMIUM_SEGMENTS.has(segment))) return 4;
+    if (segments.some(segment => CHEAP_SEGMENTS.has(segment))) return 1;
+    return 2;
+};
+
+/** Credits charged for one message with a live gateway model. */
+export const getGatewayModelCreditCost = (modelId: string) => {
+    if (isImageGenerationModel(modelId)) return IMAGE_GENERATION_CREDIT_COST;
+    const effort = getModelEffort(modelId);
+    const multiplier = effort ? EFFORT_COST_MULTIPLIER[effort] : 1;
+    return Math.max(1, Math.ceil(getModelBaseCost(getModelFamilyId(modelId)) * multiplier));
+};
+
 export const getGatewayModelDisplayName = (modelId: string) => {
     const familyName = formatGatewayModelName(getModelFamilyId(modelId));
     const effort = effortLabel(getModelEffort(modelId));
@@ -75,14 +140,16 @@ export const getGatewayModelDisplayName = (modelId: string) => {
 
 export const groupGatewayModels = (
     modelIds: string[],
-    allowedModelIds: string[] = modelIds
+    allowedModelIds: string[] = modelIds,
+    // The admin screen manages every route, so it keeps duplicates visible.
+    { collapseDuplicates = true }: { collapseDuplicates?: boolean } = {}
 ): GatewayModelFamily[] => {
     const allowed = new Set(allowedModelIds);
     const families = new Map<string, GatewayModelFamily>();
 
     for (const id of modelIds) {
         if (!allowed.has(id)) continue;
-        const familyId = getModelFamilyId(id);
+        const familyId = stripProviderPrefix(getModelFamilyId(id));
         const family = families.get(familyId) || {
             id: familyId,
             label: formatGatewayModelName(familyId),
@@ -90,18 +157,36 @@ export const groupGatewayModels = (
             variants: [],
         };
         family.isImage ||= isImageGenerationModel(id);
-        family.variants.push({ id, effort: getModelEffort(id) });
+
+        // Two routes to the same model and effort: keep the plainer id, which is
+        // the gateway's own alias rather than a vendor-qualified duplicate.
+        const effort = getModelEffort(id);
+        const duplicate = collapseDuplicates
+            ? family.variants.find(variant => variant.effort === effort)
+            : undefined;
+        if (duplicate) {
+            if (id.length < duplicate.id.length) duplicate.id = id;
+        } else {
+            family.variants.push({ id, effort });
+        }
         families.set(familyId, family);
     }
 
     return Array.from(families.values())
-        .map(family => ({
-            ...family,
-            variants: family.variants.sort(
-                (a, b) =>
-                    (a.effort ? EFFORT_ORDER.indexOf(a.effort) : EFFORT_ORDER.length) -
-                    (b.effort ? EFFORT_ORDER.indexOf(b.effort) : EFFORT_ORDER.length)
-            ),
-        }))
+        .map(family => {
+            const levelled = collapseDuplicates
+                ? family.variants.filter(variant => variant.effort)
+                : [];
+            return {
+                ...family,
+                // A model offering effort levels does not also need an unlabelled
+                // "default" entry beside them.
+                variants: (levelled.length ? levelled : family.variants).sort(
+                    (a, b) =>
+                        (a.effort ? EFFORT_ORDER.indexOf(a.effort) : EFFORT_ORDER.length) -
+                        (b.effort ? EFFORT_ORDER.indexOf(b.effort) : EFFORT_ORDER.length)
+                ),
+            };
+        })
         .sort((a, b) => a.label.localeCompare(b.label));
 };

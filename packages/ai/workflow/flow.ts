@@ -13,7 +13,6 @@ import {
     completionTask,
     modeRoutingTask,
     plannerTask,
-    proSearchTask,
     quickSearchTask,
     refineQueryTask,
     reflectorTask,
@@ -91,6 +90,8 @@ export type WorkflowContextSchema = {
         }[];
     }[];
     webSearch: boolean;
+    /** Query chosen when the model decided this message needs the web. */
+    searchQuery?: string;
     queries: string[];
     summaries: string[];
     gl?: Geo;
@@ -210,7 +211,6 @@ export const runWorkflow = ({
         completionTask,
         suggestionsTask,
         quickSearchTask,
-        proSearchTask,
     ]);
 
     return builder.build();

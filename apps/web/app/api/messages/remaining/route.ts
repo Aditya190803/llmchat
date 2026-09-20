@@ -4,6 +4,7 @@ import { ChatMode } from '@repo/shared/config';
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth';
 import { FREE_DEFAULT_MODELS, getQuota, getVisitorQuota } from '@/lib/tiers';
+import { defaultModelFor } from '@repo/shared/config';
 
 const getVisitorIp = (request: Request) =>
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -20,11 +21,13 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unable to load usage' }, { status: 500 });
     }
 
+    // Mirrors canUseMode(): an explicit policy overrides the free defaults.
+    const isPrivileged = !!session?.isPro || !!session?.isAdmin;
     const allowedModes = Object.values(ChatMode).filter(mode => {
         const policy = policies.find(p => p.mode === getModelFromChatMode(mode));
-        return session?.isPro || session?.isAdmin
-            ? policy?.proAllowed !== false
-            : policy?.freeAllowed === true || FREE_DEFAULT_MODELS.has(getModelFromChatMode(mode));
+        if (isPrivileged) return policy?.proAllowed !== false;
+        if (!policy) return FREE_DEFAULT_MODELS.has(getModelFromChatMode(mode));
+        return policy.freeAllowed === true;
     });
 
     return NextResponse.json({
@@ -33,6 +36,7 @@ export async function GET(request: Request) {
         isPro: quota.isPro,
         isAdmin: session?.isAdmin ?? false,
         allowedModes,
+        defaultModel: defaultModelFor(isPrivileged),
         isAuthenticated: !!session,
         isFetched: true,
     });

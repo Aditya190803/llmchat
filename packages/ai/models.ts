@@ -68,56 +68,13 @@ export const models: Model[] = [
 ];
 
 export const getModelFromChatMode = (mode?: string): string => {
-    switch (mode) {
-        case ChatMode.GEMINI_2_FLASH:
-            return ModelEnum.GATEWAY_FLASH;
-        case ChatMode.DEEPSEEK_R1:
-            return ModelEnum.GATEWAY_OPUS_THINKING;
-        case ChatMode.CLAUDE_3_5_SONNET:
-        case ChatMode.CLAUDE_3_7_SONNET:
-            return ModelEnum.GATEWAY_SONNET;
-        case ChatMode.GPT_4o_Mini:
-            return ModelEnum.GATEWAY_FLASH;
-        case ChatMode.GPT_4_1:
-            return ModelEnum.GATEWAY_PRO;
-        case ChatMode.GPT_4_1_Mini:
-            return ModelEnum.GATEWAY_FLASH;
-        case ChatMode.GPT_4_1_Nano:
-            return ModelEnum.GATEWAY_FLASH_LITE;
-        case ChatMode.O4_Mini:
-            return ModelEnum.GATEWAY_OSS;
-        case ChatMode.LLAMA_4_SCOUT:
-            return ModelEnum.GATEWAY_OSS;
-        case ChatMode.Deep:
-            return ModelEnum.GATEWAY_OPUS_THINKING;
-        case ChatMode.Pro:
-            return ModelEnum.GATEWAY_SONNET;
-        default:
-            // Dynamic gateway model IDs are accepted directly from Composer.
-            return mode || ModelEnum.GATEWAY_FLASH;
-    }
+    // Deep Research runs on the strongest model; anything else is already a
+    // gateway model id chosen in the composer.
+    if (mode === ChatMode.Deep) return ModelEnum.GATEWAY_OPUS_THINKING;
+    return mode || ModelEnum.GATEWAY_FLASH_LITE;
 };
 
-export const getChatModeMaxTokens = (mode: ChatMode) => {
-    switch (mode) {
-        case ChatMode.GEMINI_2_FLASH:
-            return 500000;
-        case ChatMode.DEEPSEEK_R1:
-            return 100000;
-        case ChatMode.CLAUDE_3_5_SONNET:
-            return 100000;
-        case ChatMode.CLAUDE_3_7_SONNET:
-            return 100000;
-        case ChatMode.O4_Mini:
-            return 100000;
-        case ChatMode.GPT_4o_Mini:
-            return 100000;
-        case ChatMode.Deep:
-            return 100000;
-        default:
-            return 100000;
-    }
-};
+export const getChatModeMaxTokens = (_mode?: ChatMode | string) => 100000;
 
 export const estimateTokensByWordCount = (text: string): number => {
     // Simple word splitting by whitespace
@@ -147,7 +104,10 @@ export const estimateTokensForMessages = (messages: CoreMessage[]): number => {
     return totalTokens;
 };
 
-export const trimMessageHistoryEstimated = (messages: CoreMessage[], chatMode: ChatMode) => {
+export const trimMessageHistoryEstimated = (
+    messages: CoreMessage[],
+    chatMode: ChatMode | string
+) => {
     const maxTokens = getChatModeMaxTokens(chatMode);
     let trimmedMessages = [...messages];
 

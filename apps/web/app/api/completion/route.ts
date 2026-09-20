@@ -7,7 +7,7 @@ import {
     spendVisitorCredits,
 } from '@/lib/tiers';
 import {
-    CHAT_MODE_CREDIT_COSTS,
+    getCreditCost,
     ChatMode,
     IMAGE_GENERATION_CREDIT_COST,
     isImageGenerationModel,
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         const { data } = validatedBody;
         const creditCost = isImageGenerationModel(data.mode)
             ? IMAGE_GENERATION_CREDIT_COST
-            : (CHAT_MODE_CREDIT_COSTS[data.mode as ChatMode] ?? 1);
+            : getCreditCost(data.mode);
 
         if (!(await canUseMode(session, data.mode))) {
             return new Response(
@@ -143,7 +143,7 @@ function createCompletionStream({
                         // }
                         const creditCost = isImageGenerationModel(data.mode)
                             ? IMAGE_GENERATION_CREDIT_COST
-                            : (CHAT_MODE_CREDIT_COSTS[data.mode as ChatMode] ?? 1);
+                            : getCreditCost(data.mode);
                         if (userId) {
                             await spendCredits(userId, creditCost);
                         } else {

@@ -2,13 +2,9 @@
 import { FullPageLoader, HistoryItem, Logo } from '@repo/common/components';
 import { useRootContext } from '@repo/common/context';
 import { useAppStore, useChatStore } from '@repo/common/store';
+import { APP_NAME } from '@repo/shared/config';
 import { Thread } from '@repo/shared/types';
-import {
-    Badge,
-    Button,
-    cn,
-    Flex,
-} from '@repo/ui';
+import { Badge, Button, cn, Flex } from '@repo/ui';
 import {
     IconArrowBarLeft,
     IconArrowBarRight,
@@ -131,7 +127,7 @@ export const Sidebar = () => {
                             <Logo className="text-brand size-5" />
                             {isSidebarOpen && (
                                 <p className="font-clash text-foreground text-lg font-bold tracking-wide">
-                                    llmchat.co
+                                    {APP_NAME}
                                 </p>
                             )}
                         </motion.div>
@@ -307,6 +303,7 @@ export const Sidebar = () => {
                         rounded="lg"
                         tooltip={isSidebarOpen ? undefined : 'Settings'}
                         onClick={() => setIsSettingsOpen(true)}
+                        className={cn(isSidebarOpen && 'w-full')}
                     >
                         <IconSettings2 size={14} strokeWidth={2} />
                         {isSidebarOpen && 'Settings'}

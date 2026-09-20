@@ -94,3 +94,34 @@ export type MessageGroup = {
     userMessage: ThreadItem;
     assistantMessages: ThreadItem[];
 };
+
+/** HTML pages (publishable); the rest download as .pptx/.docx/.xlsx/.md. */
+export type PageType = 'html' | 'slides' | 'doc' | 'sheet' | 'md';
+
+export type PageVersion = {
+    id: string;
+    content: string;
+    createdAt: Date;
+    label?: string;
+};
+
+export type Page = {
+    id: string;
+    threadId: string;
+    /** The answer that produced the current version. */
+    threadItemId?: string;
+    /** Every answer that produced a version, so each one can link to the page. */
+    itemIds?: string[];
+    title: string;
+    type: PageType;
+    /** HTML: full document. Slides/sheets: JSON. Docs and md: markdown. */
+    content: string;
+    versions: PageVersion[];
+    activeVersionId?: string;
+    /** Published copy at /pages/:shareId (HTML pages only). */
+    shareId?: string;
+    /** Version that the published copy currently reflects. */
+    publishedVersionId?: string;
+    createdAt: Date;
+    updatedAt: Date;
+};

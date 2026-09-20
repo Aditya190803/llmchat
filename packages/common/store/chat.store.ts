@@ -1,8 +1,8 @@
 'use client';
 
 import { Model, models } from '@repo/ai/models';
-import { ChatMode } from '@repo/shared/config';
-import { MessageGroup, Thread, ThreadItem } from '@repo/shared/types';
+import { ChatMode, DEFAULT_MODEL_FREE } from '@repo/shared/config';
+import { MessageGroup, Page, Thread, ThreadItem } from '@repo/shared/types';
 import Dexie, { Table } from 'dexie';
 import { nanoid } from 'nanoid';
 import { create } from 'zustand';
@@ -12,12 +12,18 @@ import { useAppStore } from './app.store';
 class ThreadDatabase extends Dexie {
     threads!: Table<Thread>;
     threadItems!: Table<ThreadItem>;
+    pages!: Table<Page>;
 
     constructor() {
         super('ThreadDatabase');
         this.version(1).stores({
             threads: 'id, createdAt, pinned, pinnedAt',
             threadItems: 'id, threadId, parentId, createdAt',
+        });
+        this.version(2).stores({
+            threads: 'id, createdAt, pinned, pinnedAt',
+            threadItems: 'id, threadId, parentId, createdAt',
+            pages: 'id, threadId, updatedAt',
         });
     }
 }
@@ -29,6 +35,13 @@ if (typeof window !== 'undefined') {
     CONFIG_KEY = 'chat-config';
 }
 
+export const getThreadDb = (): ThreadDatabase => {
+    if (!db && typeof window !== 'undefined') {
+        db = new ThreadDatabase();
+    }
+    return db;
+};
+
 const loadInitialData = async () => {
     const threads = await db.threads.toArray();
     const configStr = localStorage.getItem(CONFIG_KEY);
@@ -39,9 +52,9 @@ const loadInitialData = async () => {
               model: models[0].id,
               useWebSearch: false,
               showSuggestions: true,
-              chatMode: ChatMode.GEMINI_2_FLASH,
+              chatMode: DEFAULT_MODEL_FREE as ChatMode,
           };
-    const chatMode = config.chatMode || ChatMode.GEMINI_2_FLASH;
+    const chatMode = config.chatMode || (DEFAULT_MODEL_FREE as ChatMode);
     const useWebSearch = typeof config.useWebSearch === 'boolean' ? config.useWebSearch : false;
     const customInstructions = config.customInstructions || '';
 
@@ -85,6 +98,7 @@ type State = {
         isPro: boolean;
         isAdmin: boolean;
         allowedModes: string[];
+        defaultModel?: string;
         isFetched: boolean;
         loggedOut: boolean;
     };
@@ -444,7 +458,7 @@ export const useChatStore = create(
         editor: undefined,
         context: '',
         threads: [],
-        chatMode: ChatMode.GEMINI_2_FLASH,
+        chatMode: DEFAULT_MODEL_FREE as ChatMode,
         threadItems: [],
         useWebSearch: false,
         customInstructions: '',
@@ -561,6 +575,7 @@ export const useChatStore = create(
                         isPro: !!data.isPro,
                         isAdmin: !!data.isAdmin,
                         allowedModes: data.allowedModes || [],
+                        defaultModel: data.defaultModel,
                         isFetched: true,
                         loggedOut: false,
                     },
@@ -655,6 +670,7 @@ export const useChatStore = create(
         clearAllThreads: async () => {
             await db.threads.clear();
             await db.threadItems.clear();
+            await db.pages.clear();
             set(state => {
                 state.threads = [];
                 state.threadItems = [];
@@ -830,7 +846,7 @@ export const useChatStore = create(
                         id: threadItem.id,
                         threadId,
                         query: threadItem.query || '',
-                        mode: threadItem.mode || ChatMode.GEMINI_2_FLASH,
+                        mode: threadItem.mode || (DEFAULT_MODEL_FREE as ChatMode),
                         createdAt: new Date(),
                         updatedAt: new Date(),
                         ...threadItem,
@@ -898,6 +914,7 @@ export const useChatStore = create(
         deleteThread: async threadId => {
             await db.threads.delete(threadId);
             await db.threadItems.where('threadId').equals(threadId).delete();
+            await db.pages.where('threadId').equals(threadId).delete();
             set(state => {
                 state.threads = state.threads.filter((t: Thread) => t.id !== threadId);
                 state.currentThreadId = state.threads[0]?.id;

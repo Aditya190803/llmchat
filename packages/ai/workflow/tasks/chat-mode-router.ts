@@ -1,12 +1,12 @@
 import { trimMessageHistoryEstimated } from '@repo/ai/models';
 import { createTask } from '@repo/orchestrator';
-import { ChatMode } from '@repo/shared/config';
+import { ChatMode, DEFAULT_MODEL_FREE } from '@repo/shared/config';
 import { WorkflowContextSchema, WorkflowEventSchema } from '../flow';
 import { handleError, sendEvents } from '../utils';
 export const modeRoutingTask = createTask<WorkflowEventSchema, WorkflowContextSchema>({
     name: 'router',
     execute: async ({ events, context, redirectTo }) => {
-        const mode = context?.get('mode') || ChatMode.GEMINI_2_FLASH;
+        const mode = context?.get('mode') || DEFAULT_MODEL_FREE;
         const { updateStatus } = sendEvents(events);
 
         const messageHistory = context?.get('messages') || [];
@@ -21,8 +21,6 @@ export const modeRoutingTask = createTask<WorkflowEventSchema, WorkflowContextSc
 
         if (mode === ChatMode.Deep) {
             redirectTo('refine-query');
-        } else if (mode === ChatMode.Pro) {
-            redirectTo('pro-search');
         } else {
             redirectTo('completion');
         }

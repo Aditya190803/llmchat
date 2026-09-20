@@ -1,11 +1,23 @@
 'use client';
 
 import { Button, Input } from '@repo/ui';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+
+// Only same-site paths, so ?next= can't bounce users to another site.
+const safeNext = (next: string | null) =>
+    next && next.startsWith('/') && !next.startsWith('//') ? next : null;
 
 export default function SignInPage() {
-    const { push } = useRouter();
+    return (
+        <Suspense>
+            <SignInForm />
+        </Suspense>
+    );
+}
+
+function SignInForm() {
+    const next = safeNext(useSearchParams().get('next'));
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -26,7 +38,8 @@ export default function SignInPage() {
                 setError(json.error || 'Sign in failed');
                 return;
             }
-            push(json.user?.isAdmin ? '/admin' : '/chat');
+            // Full navigation so plan, credits and model list reload for the new session.
+            window.location.assign(next ?? (json.user?.isAdmin ? '/admin' : '/chat'));
         } catch {
             setError('Network error, try again');
         } finally {
@@ -38,14 +51,16 @@ export default function SignInPage() {
         <div className="flex min-h-screen items-center justify-center p-4">
             <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-4">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-semibold">Admin sign in</h1>
+                    <h1 className="text-xl font-semibold">Sign in</h1>
                     <p className="text-muted-foreground text-sm">
-                        This login is only for the admin dashboard.
+                        Unlock Pro models, more daily credits, and page publishing.
                     </p>
                 </div>
                 <Input
                     type="email"
                     placeholder="Email"
+                    autoComplete="email"
+                    autoFocus
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
@@ -53,6 +68,7 @@ export default function SignInPage() {
                 <Input
                     type="password"
                     placeholder="Password"
+                    autoComplete="current-password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
@@ -61,9 +77,12 @@ export default function SignInPage() {
                 <Button type="submit" disabled={loading}>
                     {loading ? 'Signing in...' : 'Sign in'}
                 </Button>
-                <p className="text-muted-foreground text-xs">
-                    Chat is available without an account. Only administrators sign in here.
-                </p>
+                <a
+                    href={next ?? '/chat'}
+                    className="text-muted-foreground text-center text-xs hover:underline"
+                >
+                    Continue without an account
+                </a>
             </form>
         </div>
     );

@@ -5,12 +5,14 @@ import {
     Message,
     MessageActions,
     MotionSkeleton,
+    PageBuildingCard,
+    PageCards,
     QuestionPrompt,
     SourceGrid,
     Steps,
 } from '@repo/common/components';
 import { useAnimatedText } from '@repo/common/hooks';
-import { useChatStore } from '@repo/common/store';
+import { getStreamingPage, stripPageFences, useChatStore, usePageStore } from '@repo/common/store';
 import { ThreadItem as ThreadItemType } from '@repo/shared/types';
 import { Alert, AlertDescription, cn } from '@repo/ui';
 import { IconAlertCircle, IconBook } from '@tabler/icons-react';
@@ -61,6 +63,34 @@ export const ThreadItem = memo(
                 (threadItem.answer?.images && threadItem.answer.images.length > 0)
             );
         }, [threadItem.answer]);
+
+        const isDone = ['COMPLETED', 'ERROR', 'ABORTED'].includes(threadItem.status || '');
+        const streamingPage = useMemo(
+            () => (isDone ? null : getStreamingPage(threadItem.answer?.text || '')),
+            [isDone, threadItem.answer?.text]
+        );
+
+        // Mirror the page being written into the panel so it builds in view.
+        const setLivePage = usePageStore(state => state.setLivePage);
+        const clearLivePage = usePageStore(state => state.clearLivePage);
+        useEffect(() => {
+            if (streamingPage) {
+                setLivePage({ ...streamingPage, threadItemId: threadItem.id });
+                return;
+            }
+            if (!isDone) return;
+            // The store swaps the live page for the saved one in a single update,
+            // so clearing here would blank the panel until that write lands.
+            // Only clean up when no page is coming, or if the save never arrives.
+            if (threadItem.status === 'ABORTED' || threadItem.status === 'ERROR') {
+                clearLivePage(threadItem.id);
+                return;
+            }
+            const timeout = setTimeout(() => clearLivePage(threadItem.id), 10000);
+            return () => clearTimeout(timeout);
+        }, [streamingPage, isDone, threadItem.status, threadItem.id, setLivePage, clearLivePage]);
+
+        useEffect(() => () => clearLivePage(threadItem.id), [threadItem.id, clearLivePage]);
 
         const hasResponse = useMemo(() => {
             return (
@@ -128,7 +158,7 @@ export const ThreadItem = memo(
                                     ) : null}
                                     {threadItem.answer?.text && (
                                         <MarkdownContent
-                                            content={animatedText || ''}
+                                            content={stripPageFences(animatedText || '')}
                                             key={`answer-${threadItem.id}`}
                                             isCompleted={['COMPLETED', 'ERROR', 'ABORTED'].includes(
                                                 threadItem.status || ''
@@ -142,6 +172,21 @@ export const ThreadItem = memo(
                                         />
                                     )}
                                 </div>
+                            )}
+                            {streamingPage ? (
+                                <div className="mt-3">
+                                    <PageBuildingCard
+                                        title={streamingPage.title}
+                                        type={streamingPage.type}
+                                        size={streamingPage.content.length}
+                                    />
+                                </div>
+                            ) : (
+                                isAnimationComplete && (
+                                    <div className="mt-3 empty:hidden">
+                                        <PageCards threadItem={threadItem} />
+                                    </div>
+                                )
                             )}
                         </div>
                         <QuestionPrompt threadItem={threadItem} />
