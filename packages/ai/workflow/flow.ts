@@ -13,7 +13,6 @@ import {
     completionTask,
     modeRoutingTask,
     plannerTask,
-    proSearchTask,
     quickSearchTask,
     refineQueryTask,
     reflectorTask,
@@ -212,7 +211,6 @@ export const runWorkflow = ({
         completionTask,
         suggestionsTask,
         quickSearchTask,
-        proSearchTask,
     ]);
 
     return builder.build();

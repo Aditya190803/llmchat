@@ -21,9 +21,8 @@ export const modeRoutingTask = createTask<WorkflowEventSchema, WorkflowContextSc
 
         if (mode === ChatMode.Deep) {
             redirectTo('refine-query');
-        } else if (mode === ChatMode.Pro) {
-            redirectTo('pro-search');
         } else {
+            // Pro Search is gone: ordinary chat already searches when it needs to.
             redirectTo('completion');
         }
     },

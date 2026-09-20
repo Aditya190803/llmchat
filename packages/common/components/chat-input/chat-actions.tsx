@@ -34,7 +34,6 @@ import {
     IconCheck,
     IconChevronDown,
     IconSearch,
-    IconNorthStar,
     IconPaperclip,
     IconPlayerStopFilled,
     IconWorld,
@@ -51,13 +50,6 @@ export const chatOptions = [
         value: ChatMode.Deep,
         icon: <IconAtom size={16} className="text-muted-foreground" strokeWidth={2} />,
         creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.Deep],
-    },
-    {
-        label: 'Pro Search',
-        description: 'Pro search with web search',
-        value: ChatMode.Pro,
-        icon: <IconNorthStar size={16} className="text-muted-foreground" strokeWidth={2} />,
-        creditCost: CHAT_MODE_CREDIT_COSTS[ChatMode.Pro],
     },
 ];
 

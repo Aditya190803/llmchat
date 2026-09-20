@@ -34,7 +34,7 @@ export const IntroDialog = () => {
         },
         {
             icon,
-            text: `**Research-friendly**: Leverage Web Search, Pro Search, and Deep Research features.`,
+            text: `**Research-friendly**: searches the web on its own and runs Deep Research when you ask.`,
         },
         {
             icon,
