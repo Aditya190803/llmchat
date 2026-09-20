@@ -340,7 +340,14 @@ export default function AdminPage() {
     };
 
     const policyFamilies = useMemo(
-        () => groupGatewayModels(policies.map(policy => policy.mode)),
+        () =>
+            groupGatewayModels(
+                policies.map(policy => policy.mode),
+                undefined,
+                {
+                    collapseDuplicates: false,
+                }
+            ),
         [policies]
     );
     const visibleFamilies = useMemo(() => {

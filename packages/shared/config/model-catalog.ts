@@ -32,6 +32,13 @@ export const getModelEffort = (modelId: string): ModelEffort | undefined => {
     return suffix;
 };
 
+/**
+ * "openai/gpt-oss-120b" and "gpt-oss-120b-medium" are the same model reaching
+ * us by two routes. Users should see one entry, so the vendor prefix is dropped
+ * when naming and grouping; the full id is still what gets sent to the gateway.
+ */
+export const stripProviderPrefix = (modelId: string) => modelId.replace(/^[^/]+\//, '');
+
 export const getModelFamilyId = (modelId: string) => {
     const suffix = getEffortSuffix(modelId);
     return suffix ? modelId.slice(0, -(suffix.length + 1)) : modelId;
@@ -45,7 +52,21 @@ const titlePart = (part: string) => {
 };
 
 export const formatGatewayModelName = (modelId: string) =>
-    modelId.replace(/_/g, ' ').split('-').map(titlePart).join(' ');
+    stripProviderPrefix(modelId)
+        .replace(/_/g, ' ')
+        .split('-')
+        .map(titlePart)
+        // "4", "6" in claude-opus-4-6 are one version number, not two words.
+        .reduce<string[]>((parts, part) => {
+            const previous = parts[parts.length - 1];
+            if (/^\d+$/.test(part) && previous && /^[\d.]+$/.test(previous)) {
+                parts[parts.length - 1] = `${previous}.${part}`;
+                return parts;
+            }
+            parts.push(part);
+            return parts;
+        }, [])
+        .join(' ');
 
 export const effortLabel = (effort?: ModelEffort) => {
     switch (effort) {
@@ -119,14 +140,16 @@ export const getGatewayModelDisplayName = (modelId: string) => {
 
 export const groupGatewayModels = (
     modelIds: string[],
-    allowedModelIds: string[] = modelIds
+    allowedModelIds: string[] = modelIds,
+    // The admin screen manages every route, so it keeps duplicates visible.
+    { collapseDuplicates = true }: { collapseDuplicates?: boolean } = {}
 ): GatewayModelFamily[] => {
     const allowed = new Set(allowedModelIds);
     const families = new Map<string, GatewayModelFamily>();
 
     for (const id of modelIds) {
         if (!allowed.has(id)) continue;
-        const familyId = getModelFamilyId(id);
+        const familyId = stripProviderPrefix(getModelFamilyId(id));
         const family = families.get(familyId) || {
             id: familyId,
             label: formatGatewayModelName(familyId),
@@ -134,18 +157,36 @@ export const groupGatewayModels = (
             variants: [],
         };
         family.isImage ||= isImageGenerationModel(id);
-        family.variants.push({ id, effort: getModelEffort(id) });
+
+        // Two routes to the same model and effort: keep the plainer id, which is
+        // the gateway's own alias rather than a vendor-qualified duplicate.
+        const effort = getModelEffort(id);
+        const duplicate = collapseDuplicates
+            ? family.variants.find(variant => variant.effort === effort)
+            : undefined;
+        if (duplicate) {
+            if (id.length < duplicate.id.length) duplicate.id = id;
+        } else {
+            family.variants.push({ id, effort });
+        }
         families.set(familyId, family);
     }
 
     return Array.from(families.values())
-        .map(family => ({
-            ...family,
-            variants: family.variants.sort(
-                (a, b) =>
-                    (a.effort ? EFFORT_ORDER.indexOf(a.effort) : EFFORT_ORDER.length) -
-                    (b.effort ? EFFORT_ORDER.indexOf(b.effort) : EFFORT_ORDER.length)
-            ),
-        }))
+        .map(family => {
+            const levelled = collapseDuplicates
+                ? family.variants.filter(variant => variant.effort)
+                : [];
+            return {
+                ...family,
+                // A model offering effort levels does not also need an unlabelled
+                // "default" entry beside them.
+                variants: (levelled.length ? levelled : family.variants).sort(
+                    (a, b) =>
+                        (a.effort ? EFFORT_ORDER.indexOf(a.effort) : EFFORT_ORDER.length) -
+                        (b.effort ? EFFORT_ORDER.indexOf(b.effort) : EFFORT_ORDER.length)
+                ),
+            };
+        })
         .sort((a, b) => a.label.localeCompare(b.label));
 };
