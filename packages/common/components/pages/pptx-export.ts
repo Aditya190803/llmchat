@@ -14,6 +14,8 @@ export async function downloadDeckAsPptx(deck: Deck, title: string, fileName: st
     const pptx = new PptxGenJS();
     pptx.layout = 'LAYOUT_WIDE';
     pptx.title = title;
+    pptx.author = 'Kiln';
+    pptx.company = 'Kiln';
 
     const t = deck.theme;
     const total = deck.slides.length;

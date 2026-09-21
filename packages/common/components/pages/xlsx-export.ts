@@ -7,7 +7,7 @@ export async function downloadWorkbookAsXlsx(book: Workbook, title: string, file
     // exceljs is large; load it only when someone actually exports.
     const { default: ExcelJS } = await import('exceljs');
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'llmchat';
+    wb.creator = 'Kiln';
     wb.title = title;
 
     for (const sheet of book.sheets) {
