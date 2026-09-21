@@ -216,7 +216,7 @@ export async function downloadMarkdownAsDocx(markdown: string, title: string, fi
     listInstance = 0;
     const doc = new Document({
         title,
-        creator: 'llmchat',
+        creator: 'Kiln',
         styles: {
             default: {
                 document: {

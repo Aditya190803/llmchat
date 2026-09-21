@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { jwtVerify, SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 
-export const SESSION_COOKIE = 'llmchat_session';
+export const SESSION_COOKIE = 'kiln_session';
 const SESSION_DAYS = 7;
 
 export type SessionUser = {

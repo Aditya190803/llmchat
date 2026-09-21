@@ -1,345 +1,52 @@
+# Kiln
 
-<img width="1512" alt="Screenshot 2025-04-14 at 9 13 25 PM" src="https://github.com/user-attachments/assets/b89d1343-7c6f-4685-8bcf-dbcc71ce2229" />
+[Kiln](https://kiln.adityamer.dev) — chat that makes real things.
 
-## Introduction
-
-[LLMChat.co](https://llmchat.co) is a sophisticated AI-powered chatbot platform that prioritizes privacy while offering powerful research and agentic capabilities. Built as a monorepo with Next.js, TypeScript, and cutting-edge AI technologies, it provides multiple specialized chat modes including Pro Search and Deep Research for in-depth analysis of complex topics.
-
-LLMChat.co stands out with its workflow orchestration system and focus on privacy, storing all user data locally in the browser using IndexedDB, ensuring your conversations never leave your device.
+Ask in plain language and get back working pages, documents, spreadsheets and slide decks, with live web search and your choice of model.
 
 ## Key Features
 
-**Advanced Research Modes**
-
-- **Deep Research**: Comprehensive analysis of complex topics with in-depth exploration
-- **Pro Search**: Enhanced search with web integration for real-time information
-
-**Multiple LLM Provider Support**
-- OpenAI
-- Anthropic
-- Google
-- Fireworks
-- Together AI
-- xAI
-
-**Privacy-Focused**
-
-- **Local Storage**: All user data stored in browser using IndexedDB via Dexie.js
-- **No Server-Side Storage**: Chat history never leaves your device
-
-**Agentic Capabilities**
-- **Workflow Orchestration**: Complex task coordination via custom workflow engine
-- **Reflective Analysis**: Self-improvement through analysis of prior reasoning
-- **Structured Output**: Clean presentation of research findings
+- **Makes artifacts**: pages, documents, spreadsheets and slide decks you can preview and export (`.docx`, `.xlsx`, `.pptx`)
+- **Live web search**: searches the web on its own, reads pasted links automatically
+- **Deep Research mode**: in-depth research on complex topics
+- **Model choice**: gateway model picker with effort control (instant → high), priced by model and effort
+- **Voice input**: dictation with gateway transcription
+- **Privacy-focused**: chat history stored locally in your browser (Local Storage + IndexedDB)
+- **Admin dashboard**: manage models, usage and access
 
 ## Architecture
 
-LLMChat.co is built as a monorepo with a clear separation of concerns:
+Kiln is built as a monorepo:
 
 ```
 ├── apps/
-│   ├── web/         # Next.js web application
-│   └── desktop/     # Desktop application
+│   └── web/         # Next.js web application
 │
 └── packages/
     ├── ai/          # AI models and workflow orchestration
     ├── actions/     # Shared actions and API handlers
-    ├── common/      # Common utilities and hooks
+    ├── common/      # Common utilities, hooks and UI
     ├── orchestrator/# Workflow engine and task management
     ├── prisma/      # Database schema and client
-    ├── shared/      # Shared types and constants
+    ├── shared/      # Shared types, constants and brand config
     ├── ui/          # Reusable UI components
     ├── tailwind-config/ # Shared Tailwind configuration
     └── typescript-config/ # Shared TypeScript configuration
 ```
 
-## Workflow Orchestration
-
-LLMChat.co's workflow orchestration enables powerful agentic capabilities through a modular, step-by-step approach. Here's how to create a research agent:
-
-### 1. Define Event and Context Types
-
-First, establish the data structure for events and context:
-
-```typescript
-// Define the events emitted by each task
-type AgentEvents = {
-    taskPlanner: {
-        tasks: string[];
-        query: string;
-    };
-    informationGatherer: {
-        searchResults: string[];
-    };
-    informationAnalyzer: {
-        analysis: string;
-        insights: string[];
-    };
-    reportGenerator: {
-        report: string;
-    };
-};
-
-// Define the shared context between tasks
-type AgentContext = {
-    query: string;
-    tasks: string[];
-    searchResults: string[];
-    analysis: string;
-    insights: string[];
-    report: string;
-};
-```
-
-### 2. Initialize Core Components
-
-Next, set up the event emitter, context, and workflow builder:
-
-```typescript
-import { OpenAI } from 'openai';
-import { createTask } from 'task';
-import { WorkflowBuilder } from './builder';
-import { Context } from './context';
-import { TypedEventEmitter } from './events';
-
-// Initialize event emitter with proper typing
-const events = new TypedEventEmitter<AgentEvents>();
-
-// Create the workflow builder with proper context
-const builder = new WorkflowBuilder<AgentEvents, AgentContext>('research-agent', {
-    events,
-    context: new Context<AgentContext>({
-        query: '',
-        tasks: [],
-        searchResults: [],
-        analysis: '',
-        insights: [],
-        report: '',
-    }),
-});
-
-// Initialize LLM client
-const llm = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-```
-
-### 3. Define Research Tasks
-
-Create specialized tasks for each step of the research process:
-
-#### Planning Task
-
-```typescript
-// Task Planner: Breaks down a research query into specific tasks
-const taskPlanner = createTask({
-    name: 'taskPlanner',
-    execute: async ({ context, data }) => {
-        const userQuery = data?.query || 'Research the impact of AI on healthcare';
-
-        const planResponse = await llm.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                {
-                    role: 'system',
-                    content:
-                        'You are a task planning assistant that breaks down research queries into specific search tasks.',
-                },
-                {
-                    role: 'user',
-                    content: `Break down this research query into specific search tasks: "${userQuery}". Return a JSON array of tasks.`,
-                },
-            ],
-            response_format: { type: 'json_object' },
-        });
-
-        const content = planResponse.choices[0].message.content || '{"tasks": []}';
-        const parsedContent = JSON.parse(content);
-        const tasks = parsedContent.tasks || [];
-
-        context?.set('query', userQuery);
-        context?.set('tasks', tasks);
-
-        return {
-            tasks,
-            query: userQuery,
-        };
-    },
-    route: () => 'informationGatherer',
-});
-```
-
-#### Information Gathering Task
-
-```typescript
-// Information Gatherer: Searches for information based on tasks
-const informationGatherer = createTask({
-    name: 'informationGatherer',
-    dependencies: ['taskPlanner'],
-    execute: async ({ context, data }) => {
-        const tasks = data.taskPlanner.tasks;
-        const searchResults: string[] = [];
-
-        // Process each task to gather information
-        for (const task of tasks) {
-            const searchResponse = await llm.chat.completions.create({
-                model: 'gpt-4o',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a search engine that returns factual information.',
-                    },
-                    {
-                        role: 'user',
-                        content: `Search for information about: ${task}. Return relevant facts and data.`,
-                    },
-                ],
-            });
-
-            const result = searchResponse.choices[0].message.content || '';
-            if (result) {
-                searchResults.push(result);
-            }
-        }
-
-        context?.set('searchResults', searchResults);
-
-        return {
-            searchResults,
-        };
-    },
-    route: () => 'informationAnalyzer',
-});
-```
-
-#### Analysis Task
-
-```typescript
-// Information Analyzer: Analyzes gathered information for insights
-const informationAnalyzer = createTask({
-    name: 'informationAnalyzer',
-    dependencies: ['informationGatherer'],
-    execute: async ({ context, data }) => {
-        const searchResults = data.informationGatherer.searchResults;
-        const query = context?.get('query') || '';
-
-        const analysisResponse = await llm.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                {
-                    role: 'system',
-                    content:
-                        'You are an analytical assistant that identifies patterns and extracts insights from information.',
-                },
-                {
-                    role: 'user',
-                    content: `Analyze the following information regarding "${query}" and provide a coherent analysis with key insights:\n\n${searchResults.join('\n\n')}`,
-                },
-            ],
-            response_format: { type: 'json_object' },
-        });
-
-        const content =
-            analysisResponse.choices[0].message.content || '{"analysis": "", "insights": []}';
-        const parsedContent = JSON.parse(content);
-        const analysis = parsedContent.analysis || '';
-        const insights = parsedContent.insights || [];
-
-        context?.set('analysis', analysis);
-        context?.set('insights', insights);
-
-        return {
-            analysis,
-            insights,
-        };
-    },
-    route: () => 'reportGenerator',
-});
-```
-
-#### Report Generation Task
-
-```typescript
-// Report Generator: Creates a comprehensive report
-const reportGenerator = createTask({
-    name: 'reportGenerator',
-    dependencies: ['informationAnalyzer'],
-    execute: async ({ context, data }) => {
-        const { analysis, insights } = data.informationAnalyzer;
-        const { query, searchResults } = context?.getAll() || { query: '', searchResults: [] };
-
-        const reportResponse = await llm.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                {
-                    role: 'system',
-                    content:
-                        'You are a report writing assistant that creates comprehensive, well-structured reports.',
-                },
-                {
-                    role: 'user',
-                    content: `Create a comprehensive report on "${query}" using the following analysis and insights.\n\nAnalysis: ${analysis}\n\nInsights: ${insights.join('\n- ')}\n\nStructure the report with an executive summary, key findings, detailed analysis, and conclusions.`,
-                },
-            ],
-        });
-
-        const report = reportResponse.choices[0].message.content || '';
-
-        context?.set('report', report);
-
-        return {
-            report,
-        };
-    },
-    route: () => 'end',
-});
-```
-
-### 4. Build and Execute the Workflow
-
-Finally, assemble and run the workflow:
-
-```typescript
-// Add all tasks to the workflow
-builder.addTask(taskPlanner);
-builder.addTask(informationGatherer);
-builder.addTask(informationAnalyzer);
-builder.addTask(reportGenerator);
-
-// Build the workflow
-const workflow = builder.build();
-
-// Start the workflow with an initial query
-workflow.start('taskPlanner', { query: 'Research the impact of AI on healthcare' });
-
-// Export the workflow for external use
-export const researchAgent = workflow;
-```
-
-The workflow processes through these stages:
-
-1. **Planning**: Breaks down complex questions into specific research tasks
-2. **Information Gathering**: Collects relevant data for each task
-3. **Analysis**: Synthesizes information and identifies key insights
-4. **Report Generation**: Produces a comprehensive, structured response
-
-Each step emits events that can update the UI in real-time, allowing users to see the research process unfold.
-
-## Local Storage
-LLMChat.co prioritizes user privacy by storing all data locally
+Product identity (name, domain, tagline, description, support address) lives in one place: `packages/shared/config/brand.ts`.
 
 ## Tech Stack
 
 ### Frontend
 
-- **Next.js 14**: React framework with server components
+- **Next.js 16**: React framework
 - **TypeScript**: Type-safe development
 - **Tailwind CSS**: Utility-first styling
-- **Framer Motion**: Smooth animations
-- **Shadcn UI**: Component library
+- **Framer Motion**: Animations
 - **Tiptap**: Rich text editor
 - **Zustand**: State management
-- **Dexie.js**: Used for IndexedDB interaction with a simple and powerful API
+- **Dexie.js**: IndexedDB interaction
 - **AI SDK**: Unified interface for multiple AI providers
 
 ### Development
@@ -353,31 +60,37 @@ LLMChat.co prioritizes user privacy by storing all data locally
 
 ### Prerequisites
 
-- Ensure you have `bun` installed (recommended) or `yarn`
+- Ensure you have `bun` installed
 
 ### Installation
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-repo/llmchat.git
-cd llmchat
+git clone https://github.com/Aditya190803/kiln.git
+cd kiln
 ```
 
 2. Install dependencies:
 
 ```bash
 bun install
-# or
-yarn install
 ```
 
-3. Start the development server:
+3. Configure environment:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+`TINYFISH_API_KEY` enables web search + page reading (free tier from agent.tinyfish.ai, falls back to `SERPER_API_KEY`, then DuckDuckGo).
+
+4. Start the development server:
 
 ```bash
 bun dev
-# or
-yarn dev
 ```
 
-4. Open your browser and navigate to `http://localhost:3000`
+5. Open your browser and navigate to `http://localhost:3000`
+
+To change the name, domain or tagline, edit `packages/shared/config/brand.ts` — page titles, sidebar, manifest, and legal copy all follow it.

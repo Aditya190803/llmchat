@@ -26,7 +26,7 @@ async function main() {
     }
     console.log(`model policies ok (${MODES.length})`);
 
-    const email = (process.env.ADMIN_SEED_EMAIL || 'admin@llmchat.local').toLowerCase();
+    const email = (process.env.ADMIN_SEED_EMAIL || 'admin@kiln.local').toLowerCase();
     const password = process.env.ADMIN_SEED_PASSWORD || 'admin123';
     const existing = await prisma.user.findUnique({ where: { email } });
     if (!existing) {

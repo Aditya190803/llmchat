@@ -5,7 +5,7 @@
 export const APP_NAME = 'Kiln';
 
 /** Domain used in metadata and legal copy. */
-export const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'llmchat.co';
+export const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'kiln.adityamer.dev';
 
 export const APP_URL = `https://${APP_DOMAIN}`;
 
